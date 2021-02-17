@@ -89,7 +89,7 @@ sed -i s/\<NTASKS\>/$ranks/g compile.daint.slurm
 sed -i s/\<NTASKSPERNODE\>/$ranks/g compile.daint.slurm
 sed -i s/\<CPUSPERTASK\>/1/g compile.daint.slurm
 sed -i s/--output=\<OUTFILE\>/--hint=nomultithread/g compile.daint.slurm
-sed -i s/00:45:00/03:30:00/g compile.daint.slurm
+sed -i s/00:45:00/05:30:00/g compile.daint.slurm
 sed -i s/\<G2G\>/export\ CRAY_CUDA_MPS=1/g compile.daint.slurm
 sed -i "s#<CMD>#export PYTHONPATH=/project/s1053/install/serialbox2_master/gnu/python:\$PYTHONPATH\nsrun python examples/standalone/runfile/dynamics.py test_data/ 1 $backend $githash#g" compile.daint.slurm
 
