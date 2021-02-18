@@ -11,7 +11,6 @@ import fv3core
 import fv3core._config as spec
 import fv3core.stencils.fv_dynamics as fv_dynamics
 import fv3core.testing
-import fv3core.utils.gt4py_utils as gt4py_util
 import fv3gfs.util as util
 
 
@@ -100,7 +99,6 @@ if __name__ == "__main__":
 
         fv3core.set_backend(args.backend)
         fv3core.set_rebuild(False)
-        gt4py_util.validate_args = False
 
         spec.set_namelist(args.data_dir + "/input.nml")
 
