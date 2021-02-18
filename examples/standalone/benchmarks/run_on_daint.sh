@@ -114,7 +114,7 @@ sed -i s/\<NTASKS\>/$ranks/g run.daint.slurm
 sed -i s/\<NTASKSPERNODE\>/1/g run.daint.slurm
 sed -i s/\<CPUSPERTASK\>/$nthreads/g run.daint.slurm
 sed -i s/--output=\<OUTFILE\>/--hint=nomultithread/g run.daint.slurm
-sed -i s/00:45:00/00:30:00/g run.daint.slurm
+sed -i s/00:45:00/01:30:00/g run.daint.slurm
 sed -i s/cscsci/normal/g run.daint.slurm
 sed -i s/\<G2G\>//g run.daint.slurm
 sed -i "s#<CMD>#export PYTHONPATH=/project/s1053/install/serialbox2_master/gnu/python:\$PYTHONPATH\nsrun python examples/standalone/runfile/dynamics.py test_data/ $timesteps $backend $githash#g" run.daint.slurm
