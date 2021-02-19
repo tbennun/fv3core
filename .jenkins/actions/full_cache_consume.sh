@@ -19,5 +19,5 @@ if [ "$experiment" = "c128_6ranks_baroclinic" ]; then
 fi
 
 cp -r /scratch/snx3000/tobwi/store_gt_caches/.gt_cache_00000* .
-find . -name m_\*.py -exec sed -i "s|\/scratch\/snx3000\/tobwi\/sbox\/consume\/fv3core|$(pwd)|g" {} +
+find . -name m_\*.py -exec sed -i "s|\/scratch\/snx3000\/olifu\/jenkins_submit\/workspace\/zz_fv3core_cacheSetup\/backend\/gtx86\/experiment\/c128_6ranks_baroclinic\/slave\/daint_submit|$(pwd)|g" {} +
 $ROOT_DIR/examples/standalone/benchmarks/run_on_daint.sh 2 6 $backend /project/s1053/performance/fv3core_monitor/$backend/ $data_path
