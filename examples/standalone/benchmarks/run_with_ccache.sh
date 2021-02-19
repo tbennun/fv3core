@@ -50,6 +50,7 @@ fi
 # set up the virtual environment
 echo "install requirements..."
 cd $ROOT_DIR
+git submodule update --init --recursive
 pip install external/fv3gfs-util/
 pip install .
 
