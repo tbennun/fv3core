@@ -1,5 +1,5 @@
 from gt4py import gtscript
-from gt4py.gtscript import FORWARAD, computation, horizontal, interval, region
+from gt4py.gtscript import FORWARD, computation, horizontal, interval, region
 
 import fv3core._config as spec
 from fv3core.decorators import gtstencil
