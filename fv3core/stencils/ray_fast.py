@@ -2,7 +2,6 @@ import gt4py.gtscript as gtscript
 from gt4py.gtscript import (
     BACKWARD,
     FORWARD,
-    PARALLEL,
     computation,
     horizontal,
     interval,
@@ -41,10 +40,10 @@ def ray_fast_wind(
 ):
     from __externals__ import local_ie, local_je, namelist
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         rf_cutoff_nudge = namelist.rf_cutoff + min(100.0, 10.0 * ptop)
     # dm_stencil
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         # TODO -- in the fortran model rf is only computed once, repeating
         # the computation every time ray_fast is run is inefficient
         if pfull < namelist.rf_cutoff:
@@ -80,7 +79,7 @@ def ray_fast_wind(
     with computation(BACKWARD), interval(0, -1):
         if pfull < namelist.rf_cutoff:
             dmdir = dmdir[0, 0, 1]
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         with horizontal(region[: local_ie + 1, :]):
             if pfull < rf_cutoff_nudge:  # TODO and axes(k) < ks:
                 u += dmdir / dm
@@ -102,12 +101,12 @@ def ray_fast_wind(
     with computation(BACKWARD), interval(0, -1):
         if pfull < namelist.rf_cutoff:
             dmdir = dmdir[0, 0, 1]
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         with horizontal(region[:, : local_je + 1]):
             if pfull < rf_cutoff_nudge:  # TODO and axes(k) < ks:
                 v += dmdir / dm
     # ray_fast_w
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         with horizontal(region[: local_ie + 1, : local_je + 1]):
             if not hydrostatic and pfull < namelist.rf_cutoff:
                 w *= rf

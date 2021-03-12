@@ -1,4 +1,4 @@
-from gt4py.gtscript import PARALLEL, computation, interval
+from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.corners as corners
@@ -15,13 +15,13 @@ origin = utils.origin
 # ---------------------
 @gtstencil()
 def compute_zonal_flux(flux: sd, A_in: sd, del_term: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         flux = del_term * (A_in[-1, 0, 0] - A_in)
 
 
 @gtstencil()
 def compute_meridional_flux(flux: sd, A_in: sd, del_term: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         flux = del_term * (A_in[0, -1, 0] - A_in)
 
 
@@ -30,20 +30,20 @@ def compute_meridional_flux(flux: sd, A_in: sd, del_term: sd):
 # ------------------
 @gtstencil()
 def update_q(q: sd, rarea: sd, fx: sd, fy: sd, cd: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         q = q + cd * rarea * (fx - fx[1, 0, 0] + fy - fy[0, 1, 0])
 
 
 @gtstencil()
 def copy_row(A: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         A0 = A
         A = A0[1, 0, 0]
 
 
 @gtstencil()
 def copy_column(A: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         A0 = A
         A = A0[0, 1, 0]
 

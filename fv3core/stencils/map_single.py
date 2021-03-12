@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 
 import numpy as np
-from gt4py.gtscript import FORWARD, PARALLEL, computation, interval
+from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.stencils.remap_profile as remap_profile
@@ -18,7 +18,7 @@ r23 = 2.0 / 3.0
 
 @gtstencil()
 def set_dp(dp1: FloatField, pe1: FloatField):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         dp1 = pe1[0, 0, 1] - pe1
 
 
@@ -34,7 +34,7 @@ def lagrangian_contributions(
     dp1: FloatField,
     q2_adds: FloatFieldIJ,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         q2_tmp = 0.0
         if pe1 < pbot and pe1[0, 0, 1] > ptop:
             # We are in the right pressure range to contribute to the Eulerian cell

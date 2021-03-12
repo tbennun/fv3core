@@ -121,7 +121,7 @@ The type of each input of a stencil requires a type and the first version of the
 ```python
 @gtstencil()
 def pt_adjust(pkz:sd, dp1: sd, q_con: sd, pt: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
 ```
 
 Note that `fv3core.gtstencil` can be manually called on an undecorated stencil, but this is currently in general discouraged.

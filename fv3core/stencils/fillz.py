@@ -1,5 +1,5 @@
 import numpy as np
-from gt4py.gtscript import FORWARD, PARALLEL, computation, interval
+from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.gt4py_utils as utils
@@ -24,11 +24,11 @@ def fix_tracer(
         zfix = 0
         sum0 = 0.0
         sum1 = 0.0
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         lower_fix = 0.0
         upper_fix = 0.0
     # fix_top:
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, 1):
             if q < 0:
                 q = 0
@@ -63,7 +63,7 @@ def fix_tracer(
                 )
                 q = q + dq / dp
                 lower_fix = dq
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         if upper_fix[0, 0, 1] != 0.0:
             # If a lower layer borrowed from this one, account for that here
             q = q - upper_fix[0, 0, 1] / dp
@@ -83,7 +83,7 @@ def fix_tracer(
             upper_fix = dup
         dm = q * dp
         dm_pos = dm if dm > 0.0 else 0.0
-    with computation(PARALLEL), interval(-2, -1):
+    with computation(FORWARD), interval(-2, -1):
         # if the bottom layer borrowed from this one, adjust
         if upper_fix[0, 0, 1] != 0.0:
             q = q - (upper_fix[0, 0, 1] / dp)
@@ -93,7 +93,7 @@ def fix_tracer(
         sum0 += dm
         sum1 += dm_pos
     # final_check
-    with computation(PARALLEL), interval(1, None):
+    with computation(FORWARD), interval(1, None):
         fac = sum0 / sum1 if sum0 > 0.0 else 0.0
         if zfix > 0 and fac > 0.0:
             q = fac * dm / dp if fac * dm / dp > 0.0 else 0.0

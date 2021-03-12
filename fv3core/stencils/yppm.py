@@ -1,5 +1,5 @@
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import PARALLEL, computation, interval
+from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.gt4py_utils as utils
@@ -34,19 +34,19 @@ def grid():
 
 @gtstencil(externals={"p1": p1, "p2": p2})
 def main_al_ord_under8(q: sd, al: sd):
-    with computation(PARALLEL), interval(0, None):
+    with computation(FORWARD), interval(0, None):
         al[0, 0, 0] = p1 * (q[0, -1, 0] + q) + p2 * (q[0, -2, 0] + q[0, 1, 0])
 
 
 @gtstencil(externals={"c1": c1, "c2": c2, "c3": c3})
 def al_x_under8_edge_0(q: sd, dya: sd, al: sd):
-    with computation(PARALLEL), interval(0, None):
+    with computation(FORWARD), interval(0, None):
         al[0, 0, 0] = c1 * q[0, -2, 0] + c2 * q[0, -1, 0] + c3 * q
 
 
 @gtstencil(externals={"c1": c1, "c2": c2, "c3": c3})
 def al_x_under8_edge_1(q: sd, dya: sd, al: sd):
-    with computation(PARALLEL), interval(0, None):
+    with computation(FORWARD), interval(0, None):
         al[0, 0, 0] = 0.5 * (
             (
                 (2.0 * dya[0, -1, 0] + dya[0, -2, 0]) * q[0, -1, 0]
@@ -63,7 +63,7 @@ def al_x_under8_edge_1(q: sd, dya: sd, al: sd):
 
 @gtstencil(externals={"c1": c1, "c2": c2, "c3": c3})
 def al_x_under8_edge_2(q: sd, dya: sd, al: sd):
-    with computation(PARALLEL), interval(0, None):
+    with computation(FORWARD), interval(0, None):
         al[0, 0, 0] = c3 * q[0, -1, 0] + c2 * q[0, 0, 0] + c1 * q[0, 1, 0]
 
 
@@ -144,7 +144,7 @@ def get_flux(q, c, al, mord):
 # This is unused, and flux_intermediate_ord6 is undefined.
 # @gtstencil()
 # def get_flux_stencil_ord6(q: sd, c: sd, al: sd, flux: sd, mord: int):
-#     with computation(PARALLEL), interval(0, None):
+#     with computation(FORWARD), interval(0, None):
 #         bl, br, b0, tmp = flux_intermediate_ord6(q, al, mord)
 #         fx1 = fx1_fn(c, br, b0, bl)
 #         flux = final_flux(c, q, fx1, tmp)  # noqa
@@ -153,7 +153,7 @@ def get_flux(q, c, al, mord):
 # TODO: remove when validated
 @gtstencil()
 def get_flux_stencil(q: sd, c: sd, al: sd, flux: sd, mord: int):
-    with computation(PARALLEL), interval(0, None):
+    with computation(FORWARD), interval(0, None):
         bl, br, b0, tmp = flux_intermediates(q, al, mord)
         fx1 = fx1_fn(c, br, b0, bl)
         # TODO: add [0, 0, 0] when gt4py bug is fixed
@@ -177,7 +177,7 @@ def get_flux_stencil(q: sd, c: sd, al: sd, flux: sd, mord: int):
 
 @gtstencil()
 def finalflux_ord8plus(q: sd, c: sd, bl: sd, br: sd, flux: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         b0 = get_b0(bl, br)
         fx1 = fx1_fn(c, br, b0, bl)
         flux = q[0, -1, 0] + fx1 if c > 0.0 else q + fx1
@@ -185,7 +185,7 @@ def finalflux_ord8plus(q: sd, c: sd, bl: sd, br: sd, flux: sd):
 
 @gtstencil()
 def dm_jord8plus(q: sd, al: sd, dm: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         xt = 0.25 * (q[0, 1, 0] - q[0, -1, 0])
         dqr = max(max(q, q[0, -1, 0]), q[0, 1, 0]) - q
         dql = q - min(min(q, q[0, -1, 0]), q[0, 1, 0])
@@ -194,13 +194,13 @@ def dm_jord8plus(q: sd, al: sd, dm: sd):
 
 @gtstencil()
 def al_jord8plus(q: sd, al: sd, dm: sd, r3: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         al = 0.5 * (q[0, -1, 0] + q) + r3 * (dm[0, -1, 0] - dm)
 
 
 @gtstencil()
 def blbr_jord8(q: sd, al: sd, bl: sd, br: sd, dm: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         xt = 2.0 * dm
         aldiff = al - q
         aldiffj = al[0, 1, 0] - q
@@ -251,7 +251,7 @@ def xt_dya_edge_1(q, dya, xt_minmax):
 
 @gtstencil()
 def south_edge_jord8plus_0(q: sd, dya: sd, dm: sd, bl: sd, br: sd, xt_minmax: bool):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         bl = s14 * dm[0, -1, 0] + s11 * (q[0, -1, 0] - q)
         xt = xt_dya_edge_0(q, dya, xt_minmax)
         br = xt - q
@@ -259,7 +259,7 @@ def south_edge_jord8plus_0(q: sd, dya: sd, dm: sd, bl: sd, br: sd, xt_minmax: bo
 
 @gtstencil()
 def south_edge_jord8plus_1(q: sd, dya: sd, dm: sd, bl: sd, br: sd, xt_minmax: bool):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         xt = xt_dya_edge_1(q, dya, xt_minmax)
         bl = xt - q
         xt = s15 * q + s11 * q[0, 1, 0] - s14 * dm[0, 1, 0]
@@ -268,7 +268,7 @@ def south_edge_jord8plus_1(q: sd, dya: sd, dm: sd, bl: sd, br: sd, xt_minmax: bo
 
 @gtstencil()
 def south_edge_jord8plus_2(q: sd, dya: sd, dm: sd, al: sd, bl: sd, br: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         xt = s15 * q[0, -1, 0] + s11 * q - s14 * dm
         bl = xt - q
         br = al[0, 1, 0] - q
@@ -276,7 +276,7 @@ def south_edge_jord8plus_2(q: sd, dya: sd, dm: sd, al: sd, bl: sd, br: sd):
 
 @gtstencil()
 def north_edge_jord8plus_0(q: sd, dya: sd, dm: sd, al: sd, bl: sd, br: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         bl = al - q
         xt = s15 * q[0, 1, 0] + s11 * q + s14 * dm
         br = xt - q
@@ -284,7 +284,7 @@ def north_edge_jord8plus_0(q: sd, dya: sd, dm: sd, al: sd, bl: sd, br: sd):
 
 @gtstencil()
 def north_edge_jord8plus_1(q: sd, dya: sd, dm: sd, bl: sd, br: sd, xt_minmax: bool):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         xt = s15 * q + s11 * q[0, -1, 0] + s14 * dm[0, -1, 0]
         bl = xt - q
         xt = xt_dya_edge_0(q, dya, xt_minmax)
@@ -293,7 +293,7 @@ def north_edge_jord8plus_1(q: sd, dya: sd, dm: sd, bl: sd, br: sd, xt_minmax: bo
 
 @gtstencil()
 def north_edge_jord8plus_2(q: sd, dya: sd, dm: sd, bl: sd, br: sd, xt_minmax: bool):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         xt = xt_dya_edge_1(q, dya, xt_minmax)
         bl = xt - q
         br = s11 * (q[0, 1, 0] - q) - s14 * dm[0, 1, 0]
@@ -301,7 +301,7 @@ def north_edge_jord8plus_2(q: sd, dya: sd, dm: sd, bl: sd, br: sd, xt_minmax: bo
 
 @gtstencil()
 def pert_ppm_positive_definite_constraint(a0: sd, al: sd, ar: sd, r12: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         da1 = 0.0
         a4 = 0.0
         fmin = 0.0
@@ -325,7 +325,7 @@ def pert_ppm_positive_definite_constraint(a0: sd, al: sd, ar: sd, r12: float):
 
 @gtstencil()
 def pert_ppm_standard_constraint(a0: sd, al: sd, ar: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         da1 = 0.0
         da2 = 0.0
         a6da = 0.0

@@ -4,7 +4,6 @@ from gt4py.gtscript import (
     __INLINED,
     BACKWARD,
     FORWARD,
-    PARALLEL,
     computation,
     exp,
     interval,
@@ -56,17 +55,17 @@ def precompute(
             peg = peg[0, 0, -1] + dm[0, 0, -1] * (1.0 - q_con[0, 0, -1])
             pelng = log(peg)
             pk3 = exp(akap * peln)
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         gm = 1.0 / (1.0 - cp3)
         dm = dm * rgrav
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         pm = (peg[0, 0, 1] - peg) / (pelng[0, 0, 1] - pelng)
         dz = zh[0, 0, 1] - zh
 
 
 @gtstencil()
 def last_call_copy(peln_run: sd, peln: sd, pk3: sd, pk: sd, pem: sd, pe: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         peln = peln_run
         pk = pk3
         pe = pem
@@ -87,7 +86,7 @@ def finalize(
     pe_init: sd,
     last_call: bool,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         if __INLINED(spec.namelist.use_logp):
             pk3 = peln_run
         if __INLINED(spec.namelist.beta < -0.1):

@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import BACKWARD, FORWARD, PARALLEL, computation, interval
+from gt4py.gtscript import BACKWARD, FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.gt4py_utils as utils
@@ -120,7 +120,7 @@ def set_vals(
     iv: int,
     kord: int,
 ):
-    with computation(PARALLEL), interval(0, 1):
+    with computation(FORWARD), interval(0, 1):
         # set top
         if iv == -2:
             # gam = 0.5
@@ -167,7 +167,7 @@ def set_vals(
                 3.0 * (a4_1[0, 0, -1] + a4_1) - grid_ratio * qs[0, 0, 1] - q[0, 0, -1]
             ) / (2.0 + grid_ratio + grid_ratio - gam)
             q_bot = qs
-    with computation(PARALLEL), interval(-1, None):
+    with computation(FORWARD), interval(-1, None):
         if iv == -2:
             q_bot = qs
             q = qs
@@ -187,7 +187,7 @@ def set_vals(
         if iv == -2:
             q = q - gam[0, 0, 1] * q[0, 0, 1]
     # set_avals
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, -1):
             if kord > 16:
                 a4_2 = q
@@ -214,7 +214,7 @@ def apply_constraints(
     iv: int,
     kord: int,
 ):
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(1, None):
             a4_1_0 = a4_1[0, 0, -1]
             tmp = a4_1_0 if a4_1_0 > a4_1 else a4_1
@@ -242,12 +242,12 @@ def apply_constraints(
             # do bottom
             q = q if q < tmp else tmp
             q = q if q > tmp2 else tmp2
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         # re-set a4_2 and a4_3
         a4_2 = q
         a4_3 = q[0, 0, 1]
     # set_extm
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, 1):
             extm = (a4_2 - a4_1) * (a4_3 - a4_1) > 0.0
         with interval(1, -1):
@@ -255,7 +255,7 @@ def apply_constraints(
         with interval(-1, None):
             extm = (a4_2 - a4_1) * (a4_3 - a4_1) > 0.0
     # set_exts
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         if kord > 9:
             x0 = 2.0 * a4_1 - (a4_2 + a4_3)
             x1 = abs(a4_2 - a4_3)
@@ -274,7 +274,7 @@ def set_top(
     iv: int,
 ):
     # set_top_as_iv0
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, 1):
             if iv == 0:
                 a4_2 = a4_2 if a4_2 > 0.0 else 0.0
@@ -282,7 +282,7 @@ def set_top(
             if iv == 0:
                 a4_4 = 3 * (2 * a4_1 - (a4_2 + a4_3))
     # set_top_as_iv1
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, 1):
             if iv == -1:
                 a4_2 = 0.0 if a4_2 * a4_1 <= 0.0 else a4_2
@@ -290,7 +290,7 @@ def set_top(
             if iv == -1:
                 a4_4 = 3 * (2 * a4_1 - (a4_2 + a4_3))
     # set_top_as_iv2
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, 1):
             if iv == 2:
                 a4_2 = a4_1
@@ -300,7 +300,7 @@ def set_top(
             if iv == 2:
                 a4_4 = 3 * (2 * a4_1 - (a4_2 + a4_3))
     # set_top_as_else
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(...):
             if iv < -1 or iv == 1 or iv > 2:
                 a4_4 = 3.0 * (2.0 * a4_1 - (a4_2 + a4_3))
@@ -332,7 +332,7 @@ def set_inner(
     kord: int,
     iv: int,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         # set_inner_as_kordsmall
         if kord < 9:
             # left edges?
@@ -488,14 +488,14 @@ def set_bottom(
     iv: int,
 ):
     # set_bottom_as_iv0
-    with computation(PARALLEL), interval(1, None):
+    with computation(FORWARD), interval(1, None):
         if iv == 0:
             a4_3 = a4_3 if a4_3 > 0.0 else 0.0
     # set_bottom_as_iv1
-    with computation(PARALLEL), interval(-1, None):
+    with computation(FORWARD), interval(-1, None):
         if iv == -1:
             a4_3 = 0.0 if a4_3 * a4_1 <= 0.0 else a4_3
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         # set_bottom_as_iv0
         if iv == 0:
             a4_4 = 3.0 * (2.0 * a4_1 - (a4_2 + a4_3))
@@ -505,9 +505,9 @@ def set_bottom(
         # set_bottom_as_else
         if iv > 0 or iv < -1:
             a4_4 = 3.0 * (2.0 * a4_1 - (a4_2 + a4_3))
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         a4_1, a4_2, a4_3, a4_4 = remap_constraint(a4_1, a4_2, a4_3, a4_4, extm, 2)
-    with computation(PARALLEL), interval(1, None):
+    with computation(FORWARD), interval(1, None):
         a4_1, a4_2, a4_3, a4_4 = remap_constraint(a4_1, a4_2, a4_3, a4_4, extm, 1)
 
 

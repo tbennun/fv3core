@@ -1,4 +1,4 @@
-from gt4py.gtscript import PARALLEL, computation, interval
+from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.gt4py_utils as utils
@@ -12,7 +12,7 @@ sd = utils.sd
 def flux_capacitor(
     cx: sd, cy: sd, xflux: sd, yflux: sd, crx_adv: sd, cry_adv: sd, fx: sd, fy: sd
 ):
-    with computation(PARALLEL), interval(0, None):
+    with computation(FORWARD), interval(0, None):
         cx = cx + crx_adv
         cy = cy + cry_adv
         xflux = xflux + fx

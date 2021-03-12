@@ -1,4 +1,4 @@
-from gt4py.gtscript import PARALLEL, computation, interval, log
+from gt4py.gtscript import FORWARD, computation, interval, log
 
 import fv3core._config as spec
 import fv3core.stencils.del2cubed as del2cubed
@@ -22,7 +22,7 @@ sd = utils.sd
 
 @gtstencil()
 def init_ph_columns(ak: sd, bk: sd, pfull: sd, ph1: sd, ph2: sd, p_ref: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         ph1 = ak + bk * p_ref
         ph2 = ak[0, 0, 1] + bk[0, 0, 1] * p_ref
         pfull = (ph2 - ph1) / log(ph2 / ph1)
@@ -30,13 +30,13 @@ def init_ph_columns(ak: sd, bk: sd, pfull: sd, ph1: sd, ph2: sd, p_ref: float):
 
 @gtstencil()
 def pt_adjust(pkz: sd, dp1: sd, q_con: sd, pt: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         pt = pt * (1.0 + dp1) * (1.0 - q_con) / pkz
 
 
 @gtstencil()
 def set_omega(delp: sd, delz: sd, w: sd, omga: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         omga = delp / delz * w
 
 

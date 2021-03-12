@@ -1,4 +1,4 @@
-from gt4py.gtscript import BACKWARD, FORWARD, PARALLEL, computation, interval
+from gt4py.gtscript import BACKWARD, FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.stencils.basic_operations as basic
@@ -14,7 +14,7 @@ sd = utils.sd
 
 @gtstencil()
 def copy_from_below(a: sd, b: sd):
-    with computation(PARALLEL), interval(1, None):
+    with computation(FORWARD), interval(1, None):
         b = a[0, 0, -1]
 
 

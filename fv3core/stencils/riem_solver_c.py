@@ -1,4 +1,4 @@
-from gt4py.gtscript import BACKWARD, FORWARD, PARALLEL, computation, interval, log
+from gt4py.gtscript import BACKWARD, FORWARD, computation, interval, log
 
 import fv3core._config as spec
 import fv3core.stencils.sim1_solver as sim1_solver
@@ -34,12 +34,12 @@ def precompute(
             pem = pem[0, 0, -1] + dm[0, 0, -1]
             peg = peg[0, 0, -1] + dm[0, 0, -1] * (1.0 - q_con[0, 0, -1])
             pef = ptop
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         dz = gz[0, 0, 1] - gz
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         gm = 1.0 / (1.0 - cp3)
         dm = dm / constants.GRAV
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         pm = (peg[0, 0, 1] - peg) / log(peg[0, 0, 1] / peg)
 
 
@@ -53,7 +53,7 @@ def finalize(pe2: sd, pem: sd, hs: sd, dz: sd, pef: sd, gz: sd):
         with interval(1, None):
             hs_0 = hs_0[0, 0, -1]
 
-    with computation(PARALLEL), interval(1, None):
+    with computation(FORWARD), interval(1, None):
         pef = pe2 + pem
     with computation(BACKWARD):
         with interval(-1, None):

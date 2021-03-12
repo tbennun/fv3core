@@ -1,5 +1,5 @@
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import BACKWARD, PARALLEL, computation, interval
+from gt4py.gtscript import BACKWARD, FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.gt4py_utils as utils
@@ -83,7 +83,7 @@ def init(
     q0_graupel: sd,
     xvir: float,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         t0 = ta
         # tvm = t0 * (1. + xvir*q0_vapor)  # this only gets used in hydrostatic mode
         u0 = ua
@@ -112,7 +112,7 @@ def qcon_func(qcon, q0_liquid, q0_ice, q0_snow, q0_rain, q0_graupel):
 def compute_qcon(
     qcon: sd, q0_liquid: sd, q0_ice: sd, q0_snow: sd, q0_rain: sd, q0_graupel: sd
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         qcon = qcon_func(qcon, q0_liquid, q0_ice, q0_snow, q0_rain, q0_graupel)
 
 
@@ -227,7 +227,7 @@ def m_loop_hack_interval_3_4(ri: sd, ri_ref: sd, mc: sd, delp: sd, ratio: float)
 
 @gtstencil()
 def equivalent_mass_flux(ri: sd, ri_ref: sd, mc: sd, delp: sd, ratio: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         max_ri_ratio = ri / ri_ref
         if max_ri_ratio < 0.0:
             max_ri_ratio = 0.0
@@ -370,7 +370,7 @@ def fraction_adjust(
     fra: float,
     hydrostatic: bool,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         t0 = readjust_by_frac(t0, ta, fra)
         u0 = readjust_by_frac(u0, ua, fra)
         v0 = readjust_by_frac(v0, va, fra)
@@ -380,7 +380,7 @@ def fraction_adjust(
 
 @gtstencil()
 def fraction_adjust_tracer(q0: sd, q: sd, fra: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         q0 = readjust_by_frac(q0, q, fra)
 
 
@@ -398,7 +398,7 @@ def finalize(
     v_dt: sd,
     rdt: float,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         u_dt = rdt * (u0 - ua)
         v_dt = rdt * (v0 - va)
         ta = t0

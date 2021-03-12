@@ -1,4 +1,4 @@
-from gt4py.gtscript import PARALLEL, computation, interval
+from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.stencils.a2b_ord4 as a2b_ord4
@@ -15,20 +15,20 @@ def grid():
 
 @gtstencil()
 def set_k0(pp: sd, pk3: sd, top_value: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         pp[0, 0, 0] = 0.0
         pk3[0, 0, 0] = top_value
 
 
 @gtstencil()
 def CalcWk(pk: sd, wk: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         wk = pk[0, 0, 1] - pk[0, 0, 0]
 
 
 @gtstencil()
 def CalcU(u: sd, du: sd, wk: sd, wk1: sd, gz: sd, pk3: sd, pp: sd, rdx: sd, dt: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         # hydrostatic contribution
         du = (
             dt
@@ -53,7 +53,7 @@ def CalcU(u: sd, du: sd, wk: sd, wk1: sd, gz: sd, pk3: sd, pp: sd, rdx: sd, dt: 
 
 @gtstencil()
 def CalcV(v: sd, dv: sd, wk: sd, wk1: sd, gz: sd, pk3: sd, pp: sd, rdy: sd, dt: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         # hydrostatic contribution
         dv[0, 0, 0] = (
             dt

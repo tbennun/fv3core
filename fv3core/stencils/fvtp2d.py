@@ -1,4 +1,4 @@
-from gt4py.gtscript import PARALLEL, computation, interval
+from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.stencils.delnflux as delnflux
@@ -15,21 +15,21 @@ sd = utils.sd
 
 @gtstencil()
 def q_i_stencil(q: sd, area: sd, yfx: sd, fy2: sd, ra_y: sd, q_i: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         fyy = yfx * fy2
         q_i[0, 0, 0] = (q * area + fyy - fyy[0, 1, 0]) / ra_y
 
 
 @gtstencil()
 def q_j_stencil(q: sd, area: sd, xfx: sd, fx2: sd, ra_x: sd, q_j: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         fx1 = xfx * fx2
         q_j[0, 0, 0] = (q * area + fx1 - fx1[1, 0, 0]) / ra_x
 
 
 @gtstencil()
 def transport_flux(f: sd, f2: sd, mf: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         f = 0.5 * (f + f2) * mf
 
 

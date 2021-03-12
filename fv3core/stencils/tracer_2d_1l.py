@@ -1,7 +1,7 @@
 import math
 
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import PARALLEL, computation, horizontal, interval, region
+from gt4py.gtscript import FORWARD, computation, horizontal, interval, region
 
 import fv3core._config as spec
 import fv3core.stencils.fvtp2d as fvtp2d
@@ -54,7 +54,7 @@ def flux_compute(
     xfx: FloatField,
     yfx: FloatField,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         xfx = flux_x(cx, dxa, dy, sin_sg3, sin_sg1, xfx)
         yfx = flux_y(cy, dya, dx, sin_sg4, sin_sg2, yfx)
 
@@ -70,7 +70,7 @@ def cmax_multiply_by_frac(
     frac: float,
 ):
     """multiply all other inputs in-place by frac."""
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         cxd = cxd * frac
         xfx = xfx * frac
         mfxd = mfxd * frac
@@ -81,7 +81,7 @@ def cmax_multiply_by_frac(
 
 @gtstencil()
 def cmax_stencil1(cx: FloatField, cy: FloatField, cmax: FloatField):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         cmax = max(abs(cx), abs(cy))
 
 
@@ -89,7 +89,7 @@ def cmax_stencil1(cx: FloatField, cy: FloatField, cmax: FloatField):
 def cmax_stencil2(
     cx: FloatField, cy: FloatField, sin_sg5: FloatField, cmax: FloatField
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         cmax = max(abs(cx), abs(cy)) + 1.0 - sin_sg5
 
 
@@ -101,7 +101,7 @@ def dp_fluxadjustment(
     rarea: FloatField,
     dp2: FloatField,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         dp2 = dp1 + (mfx - mfx[1, 0, 0] + mfy - mfy[0, 1, 0]) * rarea
 
 
@@ -119,7 +119,7 @@ def q_adjust(
     rarea: FloatField,
     dp2: FloatField,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         q = adjustment(q, dp1, fx, fy, rarea, dp2)
 
 
@@ -135,7 +135,7 @@ def q_adjustments(
     it: int,
     nsplt: int,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         if it < nsplt - 1:
             q = adjustment(q, dp1, fx, fy, rarea, dp2)
         else:

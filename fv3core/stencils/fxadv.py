@@ -1,5 +1,5 @@
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import PARALLEL, computation, interval
+from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.global_config as global_config
@@ -17,7 +17,7 @@ stencil_corner = True
 
 @gtstencil()
 def main_ut(uc: sd, vc: sd, cosa_u: sd, rsin_u: sd, ut: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         ut[0, 0, 0] = (
             uc - 0.25 * cosa_u * (vc[-1, 0, 0] + vc + vc[-1, 1, 0] + vc[0, 1, 0])
         ) * rsin_u
@@ -25,13 +25,13 @@ def main_ut(uc: sd, vc: sd, cosa_u: sd, rsin_u: sd, ut: sd):
 
 @gtstencil()
 def ut_y_edge(uc: sd, sin_sg1: sd, sin_sg3: sd, ut: sd, *, dt: float):
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         ut[0, 0, 0] = (uc / sin_sg3[-1, 0, 0]) if (uc * dt > 0) else (uc / sin_sg1)
 
 
 @gtstencil()
 def ut_x_edge(uc: sd, cosa_u: sd, vt: sd, ut: sd):
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         ut[0, 0, 0] = uc - 0.25 * cosa_u * (
             vt[-1, 0, 0] + vt[0, 0, 0] + vt[-1, 1, 0] + vt[0, 1, 0]
         )
@@ -39,7 +39,7 @@ def ut_x_edge(uc: sd, cosa_u: sd, vt: sd, ut: sd):
 
 @gtstencil()
 def main_vt(uc: sd, vc: sd, cosa_v: sd, rsin_v: sd, vt: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vt[0, 0, 0] = (
             vc - 0.25 * cosa_v * (uc[0, -1, 0] + uc[1, -1, 0] + uc + uc[1, 0, 0])
         ) * rsin_v
@@ -47,7 +47,7 @@ def main_vt(uc: sd, vc: sd, cosa_v: sd, rsin_v: sd, vt: sd):
 
 @gtstencil()
 def vt_y_edge(vc: sd, cosa_v: sd, ut: sd, vt: sd):
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         vt[0, 0, 0] = vc - 0.25 * cosa_v * (
             ut[0, -1, 0] + ut[1, -1, 0] + ut[0, 0, 0] + ut[1, 0, 0]
         )
@@ -55,7 +55,7 @@ def vt_y_edge(vc: sd, cosa_v: sd, ut: sd, vt: sd):
 
 @gtstencil()
 def vt_x_edge(vc: sd, sin_sg2: sd, sin_sg4: sd, vt: sd, *, dt: float):
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         vt[0, 0, 0] = (vc / sin_sg4[0, -1, 0]) if (vc * dt > 0) else (vc / sin_sg2)
 
 
@@ -77,7 +77,7 @@ def xfx_adv_stencil(
     ra_x: sd,
     dt: float,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         prod = dt * ut
         crx_adv = prod * rdxa[-1, 0, 0] if prod > 0 else prod * rdxa
         xfx_adv = dy * prod * sin_sg3[-1, 0, 0] if prod > 0 else dy * prod * sin_sg1
@@ -102,7 +102,7 @@ def yfx_adv_stencil(
     ra_y: sd,
     dt: float,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         prod = dt * vt
         cry_adv = prod * rdya[0, -1, 0] if prod > 0 else prod * rdya
         yfx_adv = dx * prod * sin_sg4[0, -1, 0] if prod > 0 else dx * prod * sin_sg2
@@ -302,7 +302,7 @@ def update_vt_x_edge(vc, sin_sg2, sin_sg4, vt, dt):
 def corner_ut_stencil(uc: sd, vc: sd, ut: sd, vt: sd, cosa_u: sd, cosa_v: sd):
     from __externals__ import ux, uy, vi, vj, vx, vy
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         ut[0, 0, 0] = (
             (
                 uc[0, 0, 0]
@@ -788,7 +788,7 @@ def nw_corner(uc, vc, ut, vt, cosa_u, cosa_v, corner_shape):
 
 # @gtstencil()
 # def west_corner_ut_lowest(uc: sd, vc: sd, ut: sd, vt: sd, cosa_u: sd, cosa_v: sd):
-#     with computation(PARALLEL), interval(...):
+#     with computation(FORWARD), interval(...):
 #         damp_u = 1.0 / (1.0 - 0.0625 * cosa_u[0, 0, 0] * cosa_v[-1, 0, 0])
 #         ut[0, 0, 0] = (
 #             uc[0, 0, 0]
@@ -808,7 +808,7 @@ def nw_corner(uc, vc, ut, vt, cosa_u, cosa_v, corner_shape):
 
 # @gtstencil()
 # def west_corner_ut_adjacent(uc: sd, vc: sd, ut: sd, vt: sd, cosa_u: sd, cosa_v: sd):
-#     with computation(PARALLEL), interval(...):
+#     with computation(FORWARD), interval(...):
 #         damp = 1.0 / (1.0 - 0.0625 * cosa_u[0, 0, 0] * cosa_v[-1, 1, 0])
 #         ut[0, 0, 0] = (
 #             uc[0, 0, 0]
@@ -827,7 +827,7 @@ def nw_corner(uc, vc, ut, vt, cosa_u, cosa_v, corner_shape):
 
 # @gtstencil()
 # def south_corner_vt_left(uc: sd, vc: sd, ut: sd, vt: sd, cosa_u: sd, cosa_v: sd):
-#     with computation(PARALLEL), interval(...):
+#     with computation(FORWARD), interval(...):
 #         damp_v = 1.0 / (1.0 - 0.0625 * cosa_u[0, -1, 0] * cosa_v[0, 0, 0])
 #         vt[0, 0, 0] = (
 #             vc[0, 0, 0]
@@ -847,7 +847,7 @@ def nw_corner(uc, vc, ut, vt, cosa_u, cosa_v, corner_shape):
 
 # @gtstencil()
 # def south_corner_vt_adjacent(uc: sd, vc: sd, ut: sd, vt: sd, cosa_u: sd, cosa_v: sd):
-#     with computation(PARALLEL), interval(...):
+#     with computation(FORWARD), interval(...):
 #         damp_v = 1.0 / (1.0 - 0.0625 * cosa_u[1, -1, 0] * cosa_v[0, 0, 0])
 #         vt[0, 0, 0] = (
 #             vc[0, 0, 0]
@@ -866,7 +866,7 @@ def nw_corner(uc, vc, ut, vt, cosa_u, cosa_v, corner_shape):
 
 # @gtstencil()
 # def east_corner_ut_lowest(uc: sd, vc: sd, ut: sd, vt: sd, cosa_u: sd, cosa_v: sd):
-#     with computation(PARALLEL), interval(...):
+#     with computation(FORWARD), interval(...):
 #         damp_u = 1.0 / (1.0 - 0.0625 * cosa_u[0, 0, 0] * cosa_v[0, 0, 0])
 #         ut[0, 0, 0] = (
 #             uc[0, 0, 0]
@@ -884,7 +884,7 @@ def nw_corner(uc, vc, ut, vt, cosa_u, cosa_v, corner_shape):
 
 # @gtstencil()
 # def east_corner_ut_adjacent(uc: sd, vc: sd, ut: sd, vt: sd, cosa_u: sd, cosa_v: sd):
-#     with computation(PARALLEL), interval(...):
+#     with computation(FORWARD), interval(...):
 #         damp = 1.0 / (1.0 - 0.0625 * cosa_u[0, 0, 0] * cosa_v[0, 1, 0])
 #         ut[0, 0, 0] = (
 #             uc[0, 0, 0]
@@ -902,7 +902,7 @@ def nw_corner(uc, vc, ut, vt, cosa_u, cosa_v, corner_shape):
 
 # @gtstencil()
 # def north_corner_vt_left(uc: sd, vc: sd, ut: sd, vt: sd, cosa_u: sd, cosa_v: sd):
-#     with computation(PARALLEL), interval(...):
+#     with computation(FORWARD), interval(...):
 #         damp_v = 1.0 / (1.0 - 0.0625 * cosa_u[0, 0, 0] * cosa_v[0, 0, 0])
 #         vt[0, 0, 0] = (
 #             vc[0, 0, 0]
@@ -920,7 +920,7 @@ def nw_corner(uc, vc, ut, vt, cosa_u, cosa_v, corner_shape):
 
 # @gtstencil()
 # def north_corner_vt_adjacent(uc: sd, vc: sd, ut: sd, vt: sd, cosa_u: sd, cosa_v: sd):
-#     with computation(PARALLEL), interval(...):
+#     with computation(FORWARD), interval(...):
 #         damp_v = 1.0 / (1.0 - 0.0625 * cosa_u[1, 0, 0] * cosa_v[0, 0, 0])
 #         vt[0, 0, 0] = (
 #             vc[0, 0, 0]

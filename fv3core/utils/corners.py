@@ -1,5 +1,5 @@
 from gt4py import gtscript
-from gt4py.gtscript import PARALLEL, computation, horizontal, interval, region
+from gt4py.gtscript import FORWARAD, computation, horizontal, interval, region
 
 import fv3core._config as spec
 from fv3core.decorators import gtstencil
@@ -189,7 +189,7 @@ def fill_corners_cells(q: FloatField, direction: str, num_fill: int = 2):
     def definition(q: FloatField):
         from __externals__ import func
 
-        with computation(PARALLEL), interval(...):
+        with computation(FORWARD), interval(...):
             q = func(q, q, 1.0, 1.0, 1.0, 1.0)
 
     if num_fill not in (2, 3):

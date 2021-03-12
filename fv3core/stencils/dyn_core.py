@@ -2,7 +2,6 @@ from gt4py.gtscript import (
     __INLINED,
     BACKWARD,
     FORWARD,
-    PARALLEL,
     computation,
     horizontal,
     interval,
@@ -45,9 +44,9 @@ def dp_ref_compute(
     zs: FloatField,
     rgrav: float,
 ):
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         dp_ref = ak[0, 0, 1] - ak + (bk[0, 0, 1] - bk) * 1.0e5
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         zs = phis * rgrav
 
 
@@ -77,7 +76,7 @@ def heatadjust_temperature_lowlevel(
     pkz: FloatField,
     cp_air: float,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         pt[0, 0, 0] = pt + heat_source / (cp_air * delp * pkz)
 
 
@@ -113,7 +112,7 @@ def p_grad_c_stencil(
     """
     from __externals__ import local_ie, local_is, local_je, local_js, namelist
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         if __INLINED(namelist.hydrostatic):
             wk = pkc[0, 0, 1] - pkc
         else:

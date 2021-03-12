@@ -1,5 +1,5 @@
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import PARALLEL, computation, interval, log, sin
+from gt4py.gtscript import FORWARD, computation, interval, log, sin
 
 import fv3core._config as spec
 import fv3core.stencils.c2l_ord as c2l_ord
@@ -29,7 +29,7 @@ def compute_rf_vals(pfull, bdt, rf_cutoff, tau0, ptop):
 
 @gtstencil()
 def initialize_u2f(pfull: sd, u2f: sd, bdt: float, tau0: float, ptop: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         if pfull < spec.namelist.rf_cutoff:
             rf = compute_rf_vals(pfull, bdt, spec.namelist.rf_cutoff, tau0, ptop)
             u2f = 1.0 / (1.0 + rf)
@@ -48,7 +48,7 @@ def rayleigh_pt_vert(
     ptop: float,
     hydrostatic: bool,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         if pfull < spec.namelist.rf_cutoff:
             if hydrostatic:
                 pt = pt + 0.5 * (ua ** 2 + va ** 2) * (1.0 - u2f ** 2) / (
@@ -62,7 +62,7 @@ def rayleigh_pt_vert(
 
 @gtstencil()
 def rayleigh_u(u: sd, pfull: sd, u2f: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         if pfull < spec.namelist.rf_cutoff:
             u = 0.5 * (u2f[0, -1, 0] + u2f) * u
 
@@ -73,7 +73,7 @@ def rayleigh_v(
     pfull: sd,
     u2f: sd,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         if pfull < spec.namelist.rf_cutoff:
             v = 0.5 * (u2f[-1, 0, 0] + u2f) * v
 

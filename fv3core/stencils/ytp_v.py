@@ -1,4 +1,4 @@
-from gt4py.gtscript import PARALLEL, computation, interval
+from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.stencils.yppm as yppm
@@ -24,7 +24,7 @@ sd = utils.sd
 def get_flux_v_stencil(
     q: sd, c: sd, al: sd, rdy: sd, bl: sd, br: sd, flux: sd, mord: int
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         b0 = get_b0(bl=bl, br=br)
         smt5 = is_smt5_mord5(bl, br) if mord == 5 else is_smt5_most_mords(bl, br, b0)
         tmp = smt5[0, -1, 0] + smt5 * (smt5[0, -1, 0] == 0)
@@ -36,7 +36,7 @@ def get_flux_v_stencil(
 
 @gtstencil()
 def get_flux_v_ord8plus(q: sd, c: sd, rdy: sd, bl: sd, br: sd, flux: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         b0 = get_b0(bl, br)
         cfl = c * rdy[0, -1, 0] if c > 0 else c * rdy
         fx1 = fx1_fn(cfl, br, b0, bl)
@@ -45,7 +45,7 @@ def get_flux_v_ord8plus(q: sd, c: sd, rdy: sd, bl: sd, br: sd, flux: sd):
 
 @gtstencil()
 def br_bl_main(q: sd, al: sd, bl: sd, br: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         # TODO: add [0, 0, 0] when gt4py bug is fixed
         bl = get_bl(al=al, q=q)  # noqa
         br = get_br(al=al, q=q)  # noqa
@@ -53,7 +53,7 @@ def br_bl_main(q: sd, al: sd, bl: sd, br: sd):
 
 @gtstencil()
 def br_bl_corner(br: sd, bl: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         bl = 0
         br = 0
 

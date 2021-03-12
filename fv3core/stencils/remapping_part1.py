@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-from gt4py.gtscript import BACKWARD, FORWARD, PARALLEL, computation, exp, interval, log
+from gt4py.gtscript import BACKWARD, FORWARD, computation, exp, interval, log
 
 import fv3core._config as spec
 import fv3core.stencils.map_single as map_single
@@ -18,7 +18,7 @@ CONSV_MIN = 0.001
 
 @gtstencil()
 def init_pe2(pe: FloatField, pe2: FloatField, ptop: float):
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, 1):
             pe2 = ptop
         with interval(-1, None):
@@ -33,9 +33,9 @@ def undo_delz_adjust_and_copy_peln(
     pe0: FloatField,
     pn2: FloatField,
 ):
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         delz = -delz * delp
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         pe0 = peln
         peln = pn2
 
@@ -69,7 +69,7 @@ def moist_cv_pt_pressure(
     from __externals__ import namelist
 
     # moist_cv.moist_pt
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         if namelist.kord_tm < 0:
             cvm, gz, q_con, cappa, pt = moist_pt_func(
                 qvapor,
@@ -96,7 +96,7 @@ def moist_cv_pt_pressure(
             ps = pe
         with interval(0, -1):
             ps = ps[0, 0, 1]
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, 1):
             pn2 = peln
         with interval(1, -1):
@@ -106,20 +106,20 @@ def moist_cv_pt_pressure(
     with computation(BACKWARD), interval(0, -1):
         dp2 = pe2[0, 0, 1] - pe2
     # copy_stencil
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         delp = dp2
 
 
 @gtstencil()
 def copy_j_adjacent(pe2: FloatField):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         pe2_0 = pe2[0, -1, 0]
         pe2 = pe2_0
 
 
 @gtstencil()
 def pn2_and_pk(pe2: FloatField, pn2: FloatField, pk: FloatField, akap: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         pn2 = log(pe2)
         pk = exp(akap * pn2)
 
@@ -171,7 +171,7 @@ def pressures_mapv(
 
 @gtstencil()
 def update_ua(pe2: FloatField, ua: FloatField):
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         ua = pe2[0, 0, 1]
 
 

@@ -1,5 +1,5 @@
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import PARALLEL, computation, interval
+from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.gt4py_utils as utils
@@ -26,7 +26,7 @@ def lagrange_y_func_p1(qx):
 
 @gtstencil()
 def lagrange_interpolation_y_p1(qx: sd, qout: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         qout = lagrange_y_func_p1(qx)
 
 
@@ -37,7 +37,7 @@ def lagrange_x_func_p1(qy):
 
 @gtstencil()
 def lagrange_interpolation_x_p1(qy: sd, qout: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         qout = lagrange_x_func_p1(qy)
 
 
@@ -53,7 +53,7 @@ def avg_y(v):
 
 @gtstencil()
 def avg_box(u: sd, v: sd, utmp: sd, vtmp: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         utmp = avg_x(u)
         vtmp = avg_y(v)
 
@@ -65,27 +65,27 @@ def contravariant(u, v, cosa, rsin):
 
 @gtstencil()
 def contravariant_stencil(u: sd, v: sd, cosa: sd, rsin: sd, out: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         out = contravariant(u, v, cosa, rsin)
 
 
 @gtstencil()
 def contravariant_components(utmp: sd, vtmp: sd, cosa_s: sd, rsin2: sd, ua: sd, va: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         ua = contravariant(utmp, vtmp, cosa_s, rsin2)
         va = contravariant(vtmp, utmp, cosa_s, rsin2)
 
 
 @gtstencil()
 def ut_main(utmp: sd, uc: sd, v: sd, cosa_u: sd, rsin_u: sd, ut: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         uc = lagrange_x_func(utmp)
         ut = contravariant(uc, v, cosa_u, rsin_u)
 
 
 @gtstencil()
 def vt_main(vtmp: sd, vc: sd, u: sd, cosa_v: sd, rsin_v: sd, vt: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vc = lagrange_y_func(vtmp)
         vt = contravariant(vc, u, cosa_v, rsin_v)
 
@@ -112,25 +112,25 @@ def vol_conserv_cubic_interp_func_y_rev(v):
 
 @gtstencil()
 def vol_conserv_cubic_interp_x(utmp: sd, uc: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         uc = vol_conserv_cubic_interp_func_x(utmp)
 
 
 @gtstencil()
 def vol_conserv_cubic_interp_x_rev(utmp: sd, uc: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         uc = vol_conserv_cubic_interp_func_x_rev(utmp)
 
 
 @gtstencil()
 def vol_conserv_cubic_interp_y(vtmp: sd, vc: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vc = vol_conserv_cubic_interp_func_y(vtmp)
 
 
 @gtstencil()
 def vt_edge(vtmp: sd, vc: sd, u: sd, cosa_v: sd, rsin_v: sd, vt: sd, rev: int):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vc = (
             vol_conserv_cubic_interp_func_y(vtmp)
             if rev == 0
@@ -141,13 +141,13 @@ def vt_edge(vtmp: sd, vc: sd, u: sd, cosa_v: sd, rsin_v: sd, vt: sd, rev: int):
 
 @gtstencil()
 def uc_x_edge1(ut: sd, sin_sg3: sd, sin_sg1: sd, uc: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         uc = ut * sin_sg3[-1, 0, 0] if ut > 0 else ut * sin_sg1
 
 
 @gtstencil()
 def vc_y_edge1(vt: sd, sin_sg4: sd, sin_sg2: sd, vc: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vc = vt * sin_sg4[0, -1, 0] if vt > 0 else vt * sin_sg2
 
 

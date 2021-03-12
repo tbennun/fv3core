@@ -2,7 +2,6 @@ import gt4py.gtscript as gtscript
 from gt4py.gtscript import (
     BACKWARD,
     FORWARD,
-    PARALLEL,
     computation,
     horizontal,
     interval,
@@ -49,7 +48,7 @@ def ra_stencil_update(
     ra_y: FloatField,
 ):
     """Updates 'ra' fields."""
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         ra_x, ra_y = ra_func(area, xfx_adv, ra_x, yfx_adv, ra_y)
 
 
@@ -78,7 +77,7 @@ def zh_damp_stencil(
     rarea: FloatField,
     zh: FloatField,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         zhbase = zh_base(z2, area, fx, fy, ra_x, ra_y)
         zh[0, 0, 0] = zhbase + (fx2 - fx2[1, 0, 0] + fy2 - fy2[0, 1, 0]) * rarea
 
@@ -92,7 +91,7 @@ def zh_stencil(
     ra_x: FloatField,
     ra_y: FloatField,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         zh = zh_base(zh, area, fx, fy, ra_x, ra_y)
 
 

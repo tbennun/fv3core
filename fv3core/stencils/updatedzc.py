@@ -1,5 +1,5 @@
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import BACKWARD, PARALLEL, computation, interval
+from gt4py.gtscript import BACKWARD, FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.global_constants as constants
@@ -209,7 +209,7 @@ def update_dz_c(
     *,
     dt: float,
 ):
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, 1):
             xfx = p_weighted_average_top(ut, dp_ref)
             yfx = p_weighted_average_top(vt, dp_ref)
@@ -219,13 +219,13 @@ def update_dz_c(
         with interval(-1, None):
             xfx = p_weighted_average_bottom(ut, dp_ref)
             yfx = p_weighted_average_bottom(vt, dp_ref)
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         fx, fy = xy_flux(gz_x, gz_y, xfx, yfx)
         # TODO: check if below gz is ok, or if we need gz_y to pass this
         gz = (gz_y * area + fx - fx[1, 0, 0] + fy - fy[0, 1, 0]) / (
             area + xfx - xfx[1, 0, 0] + yfx - yfx[0, 1, 0]
         )
-    with computation(PARALLEL), interval(-1, None):
+    with computation(FORWARD), interval(-1, None):
         rdt = 1.0 / dt
         ws3 = (zs - gz) * rdt
     with computation(BACKWARD), interval(0, -1):

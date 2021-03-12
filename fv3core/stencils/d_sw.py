@@ -3,7 +3,7 @@ import logging
 import gt4py.gtscript as gtscript
 from gt4py.gtscript import (
     __INLINED,
-    PARALLEL,
+    FORWARD,
     computation,
     horizontal,
     interval,
@@ -59,7 +59,7 @@ def flux_integral(w, delp, gx, gy, rarea):
 
 @gtstencil()
 def flux_adjust(w: sd, delp: sd, gx: sd, gy: sd, rarea: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         w = flux_integral(w, delp, gx, gy, rarea)
 
 
@@ -87,7 +87,7 @@ def horizontal_relative_vorticity_from_winds(
         rarea (in): inverse of area
         vorticity (out): area mean horizontal relative vorticity
     """
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vt = u * dx
         ut = v * dy
         vorticity[0, 0, 0] = rarea * (vt - vt[0, 1, 0] - ut + ut[1, 0, 0])
@@ -95,7 +95,7 @@ def horizontal_relative_vorticity_from_winds(
 
 @gtstencil()
 def not_inlineq_pressure(gx: sd, gy: sd, rarea: sd, fx: sd, fy: sd, pt: sd, delp: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         pt = flux_integral(
             pt, delp, gx, gy, rarea
         )  # TODO: Put [0, 0, 0] on left when gt4py bug is fixed
@@ -107,31 +107,31 @@ def not_inlineq_pressure(gx: sd, gy: sd, rarea: sd, fx: sd, fy: sd, pt: sd, delp
 
 @gtstencil()
 def ke_from_bwind(ke: sd, ub: sd, vb: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         ke[0, 0, 0] = 0.5 * (ke + ub * vb)
 
 
 @gtstencil()
 def ub_from_vort(vort: sd, ub: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         ub[0, 0, 0] = vort - vort[1, 0, 0]
 
 
 @gtstencil()
 def vb_from_vort(vort: sd, vb: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vb[0, 0, 0] = vort - vort[0, 1, 0]
 
 
 @gtstencil()
 def u_from_ke(ke: sd, vt: sd, fy: sd, u: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         u[0, 0, 0] = vt + ke - ke[1, 0, 0] + fy
 
 
 @gtstencil()
 def v_from_ke(ke: sd, ut: sd, fx: sd, v: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         v[0, 0, 0] = ut + ke - ke[0, 1, 0] - fx
 
 
@@ -140,13 +140,13 @@ def v_from_ke(ke: sd, ut: sd, fx: sd, v: sd):
 def coriolis_force_correction(zh: sd, z_rat: sd):
     from __externals__ import radius
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         z_rat[0, 0, 0] = 1.0 + (zh + zh[0, 0, 1]) / radius
 
 
 @gtstencil()
 def zrat_vorticity(wk: sd, f0: sd, z_rat: sd, vort: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vort[0, 0, 0] = wk + f0 * z_rat
 
 
@@ -158,7 +158,7 @@ def add_dw(w, dw, damp_w):
 
 @gtstencil()
 def adjust_w_and_qcon(w: sd, delp: sd, dw: sd, q_con: sd, damp_w: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         w = w / delp
         w = add_dw(w, dw, damp_w)
         # USE_COND
@@ -218,7 +218,7 @@ def heat_source_from_vorticity_damping(
         calculate_dissipation_estimate (in): If 1, calculate dissipation estimate.
             Equivalent in Fortran model is do_skeb
     """
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         ubt = (ub + vt) * rdx
         fy = u * rdx
         gy = fy * ubt
@@ -478,7 +478,7 @@ def damp_vertical_wind(w, heat_s, diss_e, dt, column_namelist):
 def ubke(uc: sd, vc: sd, cosa: sd, rsina: sd, ut: sd, ub: sd, dt4: float, dt5: float):
     from __externals__ import i_end, i_start, j_end, j_start
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         ub = dt5 * (uc[0, -1, 0] + uc - (vc[-1, 0, 0] + vc) * cosa) * rsina
         if __INLINED(spec.namelist.grid_type < 3):
             with horizontal(region[:, j_start], region[:, j_end + 1]):
@@ -491,7 +491,7 @@ def ubke(uc: sd, vc: sd, cosa: sd, rsina: sd, ut: sd, ub: sd, dt4: float, dt5: f
 def vbke(vc: sd, uc: sd, cosa: sd, rsina: sd, vt: sd, vb: sd, dt4: float, dt5: float):
     from __externals__ import i_end, i_start, j_end, j_start
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vb = dt5 * (vc[-1, 0, 0] + vc - (uc[0, -1, 0] + uc) * cosa) * rsina
         if __INLINED(spec.namelist.grid_type < 3):
             with horizontal(region[i_start, :], region[i_end + 1, :]):

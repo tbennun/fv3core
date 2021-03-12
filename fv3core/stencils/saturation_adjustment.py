@@ -1,7 +1,7 @@
 import math
 
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import FORWARD, PARALLEL, computation, exp, floor, interval, log
+from gt4py.gtscript import FORWARD, computation, exp, floor, interval, log
 
 import fv3core._config as spec
 import fv3core.utils.global_constants as constants
@@ -544,7 +544,7 @@ def compute_q_tables(
     desw: FloatField,
     des2: FloatField,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         tablew = qs_tablew_fn(index)
         table2 = qs_table2_fn(index)
         table = qs_table_fn(index)
@@ -597,7 +597,7 @@ def satadjust(
     with computation(FORWARD), interval(1, None):
         if hydrostatic:
             delz = delz[0, 0, -1]
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         q_liq = ql + qr
         q_sol = qi + qs + qg
         qpz = q_liq + q_sol

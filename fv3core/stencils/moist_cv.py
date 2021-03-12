@@ -1,5 +1,5 @@
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import BACKWARD, FORWARD, PARALLEL, computation, exp, interval, log
+from gt4py.gtscript import BACKWARD, FORWARD, computation, exp, interval, log
 
 import fv3core._config as spec
 import fv3core.utils.global_constants as constants
@@ -110,7 +110,7 @@ def moist_cv_nwat6(
     qgraupel: FloatField,
     cvm: FloatField,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         cvm = moist_cv_nwat6_fn(qvapor, qliquid, qrain, qsnow, qice, qgraupel)
 
 
@@ -264,7 +264,7 @@ def moist_pt(
     delz: FloatField,
     r_vir: float,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         cvm, gz, q_con, cappa, pt = moist_pt_func(
             qvapor,
             qliquid,
@@ -309,7 +309,7 @@ def moist_pt_last_step(
     dtmp: float,
     zvir: float,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         # if nwat == 2:
         #    gz = qliquid if qliquid > 0. else 0.
         #    qv = qvapor if qvapor > 0. else 0.
@@ -346,7 +346,7 @@ def moist_pkz(
     delz: FloatField,
     r_vir: float,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         cvm, gz = moist_cv_nwat6_fn(
             qvapor, qliquid, qrain, qsnow, qice, qgraupel
         )  # if (nwat == 6) else moist_cv_default_fn(cv_air)
@@ -511,7 +511,7 @@ def compute_pkz_stencil_func(
     delz: FloatField,
     pt: FloatField,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         pkz = compute_pkz_func(delp, delz, pt, cappa)
 
 
@@ -619,7 +619,7 @@ def fvsetup_stencil(
     nwat: int,
     moist_phys: bool,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         # TODO: The conditional with gtscript function triggers and undefined
         # temporary variable, even though there are no new temporaries
         # if moist_phys:

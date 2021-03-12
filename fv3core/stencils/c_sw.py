@@ -1,7 +1,7 @@
 import gt4py.gtscript as gtscript
 from gt4py.gtscript import (
     __INLINED,
-    PARALLEL,
+    FORWARD,
     computation,
     horizontal,
     interval,
@@ -20,7 +20,7 @@ sd = utils.sd
 
 @gtstencil()
 def geoadjust_ut(ut: sd, dy: sd, sin_sg3: sd, sin_sg1: sd, dt2: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         ut[0, 0, 0] = (
             dt2 * ut * dy * sin_sg3[-1, 0, 0] if ut > 0 else dt2 * ut * dy * sin_sg1
         )
@@ -28,7 +28,7 @@ def geoadjust_ut(ut: sd, dy: sd, sin_sg3: sd, sin_sg1: sd, dt2: float):
 
 @gtstencil()
 def geoadjust_vt(vt: sd, dx: sd, sin_sg4: sd, sin_sg2: sd, dt2: float):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vt[0, 0, 0] = (
             dt2 * vt * dx * sin_sg4[0, -1, 0] if vt > 0 else dt2 * vt * dx * sin_sg2
         )
@@ -36,7 +36,7 @@ def geoadjust_vt(vt: sd, dx: sd, sin_sg4: sd, sin_sg2: sd, dt2: float):
 
 @gtstencil()
 def absolute_vorticity(vort: sd, fC: sd, rarea_c: sd):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         vort[0, 0, 0] = fC + rarea_c * vort
 
 
@@ -82,7 +82,7 @@ def transportdelp(
 
     from __externals__ import namelist
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         assert __INLINED(namelist.grid_type < 3)
         # additional assumption (not grid.nested)
 
@@ -144,7 +144,7 @@ def divergence_corner(
     """
     from __externals__ import i_end, i_start, j_end, j_start
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         uf = (
             (u - 0.25 * (va[0, -1, 0] + va) * (cos_sg4[0, -1, 0] + cos_sg2))
             * dyc
@@ -184,7 +184,7 @@ def circulation_cgrid(uc: sd, vc: sd, dxc: sd, dyc: sd, vort_c: sd):
     """
     from __externals__ import i_end, i_start, j_end, j_start
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         fx = dxc * uc
         fy = dyc * vc
 
@@ -219,7 +219,7 @@ def update_vorticity_and_kinetic_energy(
 ):
     from __externals__ import i_end, i_start, j_end, j_start, namelist
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         assert __INLINED(namelist.grid_type < 3)
 
         ke = uc if ua > 0.0 else uc[1, 0, 0]
@@ -251,7 +251,7 @@ def update_zonal_velocity(
 ):
     from __externals__ import i_end, i_start, namelist
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         assert __INLINED(namelist.grid_type < 3)
         # additional assumption: not __INLINED(spec.grid.nested)
 
@@ -276,7 +276,7 @@ def update_meridional_velocity(
 ):
     from __externals__ import j_end, j_start, namelist
 
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         assert __INLINED(namelist.grid_type < 3)
         # additional assumption: not __INLINED(spec.grid.nested)
 

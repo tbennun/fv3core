@@ -128,7 +128,7 @@ def fix_neg_water(
     lv00: float,
     d0_vap: float,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         q_liq = 0.0 if 0.0 > qliquid + qrain else qliquid + qrain
         q_sol = 0.0 if 0.0 > qice + qsnow else qice + qsnow
         cpm = (
@@ -155,7 +155,7 @@ def fix_neg_cloud(dp: FloatField, qcld: FloatField):
     with computation(FORWARD), interval(1, -1):
         if qcld[0, 0, -1] < 0.0:
             qcld = qcld + qcld[0, 0, -1] * dp[0, 0, -1] / dp
-    with computation(PARALLEL), interval(1, -1):
+    with computation(FORWARD), interval(1, -1):
         if qcld < 0.0:
             qcld = 0.0
     with computation(FORWARD):
@@ -232,7 +232,7 @@ def fix_water_vapor_k_loop(i, j, kbot, qvapor, dp):
 def fix_water_vapor_down(
     qvapor: FloatField, dp: FloatField, upper_fix: FloatField, lower_fix: FloatField
 ):
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, 1):
             qvapor = qvapor if qvapor >= 0 else 0
         with interval(1, 2):
@@ -249,10 +249,10 @@ def fix_water_vapor_down(
         if qvapor < 0:
             lower_fix = qvapor * dp
             qvapor = 0
-    with computation(PARALLEL), interval(0, -2):
+    with computation(FORWARD), interval(0, -2):
         if upper_fix[0, 0, 1] != 0:
             qvapor = qvapor - upper_fix[0, 0, 1] / dp
-    with computation(PARALLEL), interval(-1, None):
+    with computation(FORWARD), interval(-1, None):
         if lower_fix[0, 0, -1] > 0:
             qvapor = qvapor + lower_fix / dp
         # Here we're re-using upper_fix to represent the current version of
@@ -276,7 +276,7 @@ def fix_water_vapor_down(
             upper_fix = upper_fix[0, 0, 1]
     with computation(FORWARD), interval(1, None):
         upper_fix = upper_fix[0, 0, -1]
-    with computation(PARALLEL), interval(-1, None):
+    with computation(FORWARD), interval(-1, None):
         qvapor[0, 0, 0] = upper_fix[0, 0, 0]
 
 

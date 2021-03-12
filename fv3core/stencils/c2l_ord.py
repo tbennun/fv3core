@@ -1,4 +1,4 @@
-from gt4py.gtscript import PARALLEL, computation, horizontal, interval, region
+from gt4py.gtscript import FORWARD, computation, horizontal, interval, region
 
 import fv3core._config as spec
 import fv3core.utils.global_config as global_config
@@ -29,7 +29,7 @@ def c2l_ord2(
     ua: FloatField,
     va: FloatField,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         wu = u * dx
         wv = v * dy
         # Co-variant vorticity-conserving interpolation
@@ -53,7 +53,7 @@ def ord4_transform(
     ua: FloatField,
     va: FloatField,
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         from __externals__ import i_end, i_start, j_end, j_start
 
         utmp = C2 * (u[0, -1, 0] + u[0, 2, 0]) + C1 * (u + u[0, 1, 0])

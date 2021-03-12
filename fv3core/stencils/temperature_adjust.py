@@ -1,5 +1,5 @@
 import numpy as np
-from gt4py.gtscript import PARALLEL, computation, exp, interval, log
+from gt4py.gtscript import FORWARD, computation, exp, interval, log
 
 import fv3core._config as spec
 import fv3core.utils.global_constants as constants
@@ -15,7 +15,7 @@ sd = utils.sd
 def compute_pkz_tempadjust(
     delp: sd, delz: sd, cappa: sd, heat_source: sd, delt: sd, pt: sd, pkz: sd
 ):
-    with computation(PARALLEL), interval(...):
+    with computation(FORWARD), interval(...):
         pkz = exp(cappa / (1.0 - cappa) * log(constants.RDG * delp / delz * pt))
         pkz = (constants.RDG * delp / delz * pt) ** (cappa / (1.0 - cappa))
         dtmp = heat_source / (constants.CV_AIR * delp)

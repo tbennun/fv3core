@@ -1,4 +1,4 @@
-from gt4py.gtscript import BACKWARD, FORWARD, PARALLEL, computation, exp, interval, log
+from gt4py.gtscript import BACKWARD, FORWARD, computation, exp, interval, log
 
 import fv3core._config as spec
 import fv3core.utils.global_constants as constants
@@ -34,7 +34,7 @@ def sim1_solver(
         with interval(1, None):
             wsr_top = wsr_top[0, 0, -1]
 
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         pe = exp(gm * log(-dm / dz * constants.RDGAS * ptr)) - pm
         w1 = w
     with computation(FORWARD):
@@ -54,7 +54,7 @@ def sim1_solver(
 
     # stencils: w_solver
     # {
-    with computation(PARALLEL):
+    with computation(FORWARD):
         with interval(0, 1):
             pp = 0.0
         with interval(1, 2):
@@ -105,7 +105,7 @@ def sim1_solver(
             p1 = (pe + bb * pe[0, 0, 1] + g_rat * pe[0, 0, 2]) * 1.0 / 3.0 - g_rat * p1[
                 0, 0, 1
             ]
-    with computation(PARALLEL), interval(0, -1):
+    with computation(FORWARD), interval(0, -1):
         maxp = p_fac * pm if p_fac * dm > p1 + pm else p1 + pm
         dz = -dm * constants.RDGAS * ptr * exp((cp3 - 1.0) * log(maxp))
     # }
