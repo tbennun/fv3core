@@ -1,5 +1,5 @@
 import gt4py.gtscript as gtscript
-from gt4py.gtscript import BACKWARD, FORWARD, PARALLEL, computation, interval
+from gt4py.gtscript import BACKWARD, FORWARD, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.global_constants as constants
