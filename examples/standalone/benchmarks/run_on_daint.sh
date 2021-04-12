@@ -95,6 +95,9 @@ pip list
 # set the environment
 if [ -d ./buildenv ] ; then rm -rf buildenv ; fi
 git clone https://github.com/VulcanClimateModeling/buildenv/
+cd ./buildenv
+git checkout feature/update_gcc9.3_cuda11.0
+cd -
 cp ./buildenv/submit.daint.slurm compile.daint.slurm
 cp ./buildenv/submit.daint.slurm run.daint.slurm
 
