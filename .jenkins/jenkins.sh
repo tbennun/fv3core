@@ -49,6 +49,9 @@ popd > /dev/null
 shopt -s expand_aliases
 # Download the env
 . ${envloc}/env.sh
+cd ${envloc}/venv
+git checkout feature/update_gcc9.3_cuda11.0
+cd -
 
 # setup module environment and default queue
 test -f ${envloc}/env/machineEnvironment.sh || exitError 1201 ${LINENO} "cannot find machineEnvironment.sh script"
