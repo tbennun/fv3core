@@ -50,6 +50,7 @@ from .translate_map1_ppm_2d import (
     TranslateMap1_PPM_2d_2,
     TranslateMap1_PPM_2d_3,
 )
+from .translate_map_scalar_new import TranslateMapScalarNew
 from .translate_map_scalar_2d import TranslateMapScalar_2d
 from .translate_mapn_tracer_2d import TranslateMapN_Tracer_2d
 from .translate_moistcvpluspkz_2d import TranslateMoistCVPlusPkz_2d
