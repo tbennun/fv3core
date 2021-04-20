@@ -7,7 +7,7 @@ from gt4py import gtscript
 import fv3core.utils.global_config as global_config
 import fv3gfs.util as fv3util
 
-from . import gt4py_utils as utils
+# from . import gt4py_utils as utils
 
 
 class Grid:
@@ -38,7 +38,7 @@ class Grid:
         self.njd = int(self.jed - self.jsd + 1)
         self.nic = int(self.ie - self.is_ + 1)
         self.njc = int(self.je - self.js + 1)
-        self.halo = utils.halo
+        self.halo = 3#utils.halo
         self.global_is, self.global_js = self.local_to_global_indices(self.is_, self.js)
         self.global_ie, self.global_je = self.local_to_global_indices(self.ie, self.je)
         self.global_isd, self.global_jsd = self.local_to_global_indices(
@@ -367,48 +367,48 @@ class Grid:
             return 0, 0
 
 
-@functools.lru_cache(maxsize=None)
-def axis_offsets(
-    grid: Grid,
-    origin: Tuple[int, ...],
-    domain: Tuple[int, ...],
-):
-    """Return the axis offsets relative to stencil compute domain."""
-    if grid.west_edge:
-        proc_offset = grid.is_ - grid.global_is
-        origin_offset = grid.is_ - origin[0]
-        i_start = gtscript.I[0] + proc_offset + origin_offset
-    else:
-        i_start = gtscript.I[0] - np.iinfo(np.int32).max
+# @functools.lru_cache(maxsize=None)
+# def axis_offsets(
+#     grid: Grid,
+#     origin: Tuple[int, ...],
+#     domain: Tuple[int, ...],
+# ):
+#     """Return the axis offsets relative to stencil compute domain."""
+#     if grid.west_edge:
+#         proc_offset = grid.is_ - grid.global_is
+#         origin_offset = grid.is_ - origin[0]
+#         i_start = gtscript.I[0] + proc_offset + origin_offset
+#     else:
+#         i_start = gtscript.I[0] - np.iinfo(np.int32).max
 
-    if grid.east_edge:
-        proc_offset = grid.npx + grid.halo - 2 - grid.global_is
-        endpt_offset = (grid.is_ - origin[0]) - domain[0] + 1
-        i_end = gtscript.I[-1] + proc_offset + endpt_offset
-    else:
-        i_end = gtscript.I[-1] + np.iinfo(np.int32).max
+#     if grid.east_edge:
+#         proc_offset = grid.npx + grid.halo - 2 - grid.global_is
+#         endpt_offset = (grid.is_ - origin[0]) - domain[0] + 1
+#         i_end = gtscript.I[-1] + proc_offset + endpt_offset
+#     else:
+#         i_end = gtscript.I[-1] + np.iinfo(np.int32).max
 
-    if grid.south_edge:
-        proc_offset = grid.js - grid.global_js
-        origin_offset = grid.js - origin[1]
-        j_start = gtscript.J[0] + proc_offset + origin_offset
-    else:
-        j_start = gtscript.J[0] - np.iinfo(np.int32).max
+#     if grid.south_edge:
+#         proc_offset = grid.js - grid.global_js
+#         origin_offset = grid.js - origin[1]
+#         j_start = gtscript.J[0] + proc_offset + origin_offset
+#     else:
+#         j_start = gtscript.J[0] - np.iinfo(np.int32).max
 
-    if grid.north_edge:
-        proc_offset = grid.npy + grid.halo - 2 - grid.global_js
-        endpt_offset = (grid.js - origin[1]) - domain[1] + 1
-        j_end = gtscript.J[-1] + proc_offset + endpt_offset
-    else:
-        j_end = gtscript.J[-1] + np.iinfo(np.int32).max
+#     if grid.north_edge:
+#         proc_offset = grid.npy + grid.halo - 2 - grid.global_js
+#         endpt_offset = (grid.js - origin[1]) - domain[1] + 1
+#         j_end = gtscript.J[-1] + proc_offset + endpt_offset
+#     else:
+#         j_end = gtscript.J[-1] + np.iinfo(np.int32).max
 
-    return {
-        "i_start": i_start,
-        "local_is": gtscript.I[0] + grid.is_ - origin[0],
-        "i_end": i_end,
-        "local_ie": gtscript.I[-1] + grid.ie - origin[0] - domain[0] + 1,
-        "j_start": j_start,
-        "local_js": gtscript.J[0] + grid.js - origin[1],
-        "j_end": j_end,
-        "local_je": gtscript.J[-1] + grid.je - origin[1] - domain[1] + 1,
-    }
+#     return {
+#         "i_start": i_start,
+#         "local_is": gtscript.I[0] + grid.is_ - origin[0],
+#         "i_end": i_end,
+#         "local_ie": gtscript.I[-1] + grid.ie - origin[0] - domain[0] + 1,
+#         "j_start": j_start,
+#         "local_js": gtscript.J[0] + grid.js - origin[1],
+#         "j_end": j_end,
+#         "local_je": gtscript.J[-1] + grid.je - origin[1] - domain[1] + 1,
+#     }

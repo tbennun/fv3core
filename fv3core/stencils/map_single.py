@@ -160,7 +160,7 @@ def do_lagrangian_contributions(
             q1, pe1, pe2, q4_1, q4_2, q4_3, q4_4, dp1, i1, i2, j1, j2, kord
         )
     elif version == "stencil":
-        lagrangian_contributions_stencil(
+        lagrangian_contributions_stencil_new(
             q1,
             pe1,
             pe2,
@@ -211,6 +211,72 @@ def setup_data(q1: FloatField, pe1: FloatField, i1: int, i2: int, j1: int, j2: i
     )
     set_dp(dp1, pe1, origin=origin, domain=domain)
     return dp1, q4_1, q4_2, q4_3, q4_4, origin, domain, i_extent, j_extent
+
+
+@gtstencil()
+def lcs_new(
+    q: FloatField,
+    pe1: FloatField,
+    pe2: FloatField,
+    q4_1: FloatField,
+    q4_2: FloatField,
+    q4_3: FloatField,
+    q4_4: FloatField,
+    dp1: FloatField,
+):
+    with computation(PARALLEL), interval(...):
+        k_offset = 0
+    with computation(FORWARD), interval(...):
+        l = k_offset
+        v_pe2 = pe2
+        v_pe1 = pe1[0, 0, l]
+        pl = (v_pe2 - v_pe1) / dp1[0, 0, l]
+        if pe2[0, 0, 1] <= pe1[0, 0, l + 1]:
+            pr = (pe2[0, 0, 1] - v_pe1) / dp1[0, 0, l]
+            q = (
+                q4_2
+                + 0.5 * (q4_4[0, 0, l] + q4_3[0, 0, l] - q4_2[0, 0, l]) * (pr + pl)
+                - q4_4[0, 0, l] * 1.0 / 3.0 * (pr * (pr + pl) + pl * pl)
+            )
+        else:
+            qsum = (pe1[0, 0, l + 1] - pe2) * (
+                q4_2[0, 0, l]
+                + 0.5 * (q4_4[0, 0, l] + q4_3[0, 0, l] - q4_2[0, 0, l]) * (1.0 + pl)
+                - q4_4[0, 0, l] * 1.0 / 3.0 * (1.0 + pl * (1.0 + pl))
+            )
+            l = l + 1
+            while pe1[0, 0, l + 1] < pe2[0, 0, 1]:
+                qsum += dp1[0, 0, l] * q4_1[0, 0, l]
+                l = l + 1
+            dp = pe2[0, 0, 1] - pe1[0, 0, l]
+            esl = dp / dp1[0, 0, l]
+            qsum += dp * q4_2[0, 0, l] + 0.5 * esl * (
+                q4_3[0, 0, l]
+                - q4_2[0, 0, l]
+                + q4_4[0, 0, l] * (1.0 - (2.0 / 3.0) * esl)
+            )
+            q = qsum / (pe2[0, 0, 1] - pe2)
+        k_offset = l - 1
+
+
+def lagrangian_contributions_stencil_new(
+    q1: FloatField,
+    pe1: FloatField,
+    pe2: FloatField,
+    q4_1: FloatField,
+    q4_2: FloatField,
+    q4_3: FloatField,
+    q4_4: FloatField,
+    dp1: FloatField,
+    i1: int,
+    i2: int,
+    j1: int,
+    j2: int,
+    kord: int,
+    origin: Tuple[int, int, int],
+    domain: Tuple[int, int, int],
+):
+    lcs_new(q1, pe1, pe2, q4_1, q4_2, q4_3, q4_4, dp1, origin=origin, domain=domain)
 
 
 def lagrangian_contributions_stencil(

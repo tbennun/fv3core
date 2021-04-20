@@ -174,19 +174,19 @@ class FV3StencilObject:
         self.backend_kwargs: Dict[str, Any] = kwargs
         """Remainder of the arguments assumed to be compiler backend options."""
 
-        self._data_cache: StencilDataCache = StencilDataCache("data_cache.p")
-        """Data cache to store axis offsets and passed externals."""
+        # self._data_cache: StencilDataCache = StencilDataCache("data_cache.p")
+        # """Data cache to store axis offsets and passed externals."""
 
     @property
     def built(self) -> bool:
         """Indicates whether the stencil is loaded."""
         return self.stencil_object is not None
 
-    @property
-    def axis_offsets(self) -> Dict[str, Any]:
-        """AxisOffsets used in this stencil."""
-        cached_data = self._data_cache[self.stencil_object]
-        return cached_data["axis_offsets"] if "axis_offsets" in cached_data else {}
+    # @property
+    # def axis_offsets(self) -> Dict[str, Any]:
+    #     """AxisOffsets used in this stencil."""
+    #     cached_data = self._data_cache[self.stencil_object]
+    #     return cached_data["axis_offsets"] if "axis_offsets" in cached_data else {}
 
     @property
     def passed_externals(self) -> Dict[str, Any]:
@@ -245,8 +245,8 @@ class FV3StencilObject:
             origin: Data index mapped to (0, 0, 0) in the compute domain (required)
         """
 
-        # Can optimize this by marking stencils that need these
-        axis_offsets = fv3core.utils.axis_offsets(spec.grid, origin, domain)
+        # # Can optimize this by marking stencils that need these
+        # axis_offsets = fv3core.utils.axis_offsets(spec.grid, origin, domain)
 
         regenerate_stencil = not self.built or global_config.get_rebuild()
 
@@ -267,7 +267,7 @@ class FV3StencilObject:
                 "externals": {
                     "namelist": spec.namelist,
                     "grid": spec.grid,
-                    **axis_offsets,
+                    # **axis_offsets,
                     **self._passed_externals,
                 },
                 "format_source": global_config.get_format_source(),
@@ -281,14 +281,14 @@ class FV3StencilObject:
                 definition=self.func, build_info=new_build_info, **stencil_kwargs
             )
             stencil = self.stencil_object
-            if stencil not in self._data_cache and "def_ir" in new_build_info:
-                def_ir = new_build_info["def_ir"]
-                axis_offsets = {
-                    k: v for k, v in def_ir.externals.items() if k in axis_offsets
-                }
-                self._data_cache[stencil] = dict(
-                    axis_offsets=axis_offsets, passed_externals=self._passed_externals
-                )
+            # if stencil not in self._data_cache and "def_ir" in new_build_info:
+            # def_ir = new_build_info["def_ir"]
+            # axis_offsets = {
+            #     k: v for k, v in def_ir.externals.items() if k in axis_offsets
+            # }
+            # self._data_cache[stencil] = dict(
+            #     axis_offsets=axis_offsets, passed_externals=self._passed_externals
+            # )
 
         # Call it
         kwargs["exec_info"] = kwargs.get("exec_info", {})
