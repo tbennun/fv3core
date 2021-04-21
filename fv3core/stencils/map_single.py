@@ -8,7 +8,7 @@ import fv3core.utils.gt4py_utils as utils
 from fv3core.decorators import gtstencil
 from fv3core.stencils.basic_operations import copy_stencil
 from fv3core.stencils.remap_profile import RemapProfile
-from fv3core.utils.typing import FloatField, FloatFieldIJ
+from fv3core.utils.typing import FloatField, FloatFieldIJ, IntFieldIJ
 
 
 r3 = 1.0 / 3.0
@@ -223,12 +223,9 @@ def lcs_new(
     q4_3: FloatField,
     q4_4: FloatField,
     dp1: FloatField,
-    kmax: int,
+    l: IntFieldIJ,
 ):
-    with computation(PARALLEL), interval(...):
-        k_offset = 0
     with computation(FORWARD), interval(...):
-        l = k_offset
         v_pe2 = pe2
         v_pe1 = pe1[0, 0, l]
         pl = (v_pe2 - v_pe1) / dp1[0, 0, l]
@@ -246,7 +243,7 @@ def lcs_new(
                 - q4_4[0, 0, l] * 1.0 / 3.0 * (1.0 + pl * (1.0 + pl))
             )
             l = l + 1
-            while pe1[0, 0, l + 1] < pe2[0, 0, 1] and l < kmax:
+            while pe1[0, 0, l + 1] < pe2[0, 0, 1]:
                 qsum += dp1[0, 0, l] * q4_1[0, 0, l]
                 l = l + 1
             dp = pe2[0, 0, 1] - pe1[0, 0, l]
@@ -257,7 +254,7 @@ def lcs_new(
                 + q4_4[0, 0, l] * (1.0 - (2.0 / 3.0) * esl)
             )
             q = qsum / (pe2[0, 0, 1] - pe2)
-        k_offset = l - 1
+        l = l - 1
 
 
 def lagrangian_contributions_stencil_new(
@@ -277,6 +274,15 @@ def lagrangian_contributions_stencil_new(
     origin: Tuple[int, int, int],
     domain: Tuple[int, int, int],
 ):
+    k_offset = utils.make_storage_from_shape(
+        q1.shape[:-1],
+        origin=spec.grid.compute_origin()[:-1],
+        cache_key="lagrangian_contributions_stencil_new",
+        init=True,
+        mask=(True, True, False),
+        dtype=int,
+    )
+
     lcs_new(
         q1,
         pe1,
@@ -286,9 +292,9 @@ def lagrangian_contributions_stencil_new(
         q4_3,
         q4_4,
         dp1,
-        79,
+        k_offset,
         origin=origin,
-        domain=(domain[0], domain[1], 1),
+        domain=domain,
     )
 
 
