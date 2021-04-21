@@ -226,21 +226,21 @@ def apply_constraints(
         with interval(2, -1):
             # do middle
             if (gam[0, 0, -1] * gam[0, 0, 1]) > 0:
-                q = q if q < tmp else tmp
-                q = q if q > tmp2 else tmp2
+                q = min(q, tmp)
+                q = max(q, tmp2)
             elif gam[0, 0, -1] > 0:
                 # there's a local maximum
-                q = q if q > tmp2 else tmp2
+                q = max(q, tmp2)
             else:
                 # there's a local minimum
-                q = q if q < tmp else tmp
+                q = min(q, tmp)
                 if __INLINED(iv == 0):
-                    q = 0.0 if (q < 0.0) else q
+                    q = max(0.0, q)
             # q = constrain_interior(q, gam, a4_1)
         with interval(-1, None):
             # do bottom
-            q = q if q < tmp else tmp
-            q = q if q > tmp2 else tmp2
+            q = min(q, tmp)
+            q = max(q, tmp2)
     with computation(PARALLEL), interval(...):
         # re-set a4_2 and a4_3
         a4_2 = q

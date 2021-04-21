@@ -223,6 +223,7 @@ def lcs_new(
     q4_3: FloatField,
     q4_4: FloatField,
     dp1: FloatField,
+    kmax: int,
 ):
     with computation(PARALLEL), interval(...):
         k_offset = 0
@@ -234,7 +235,7 @@ def lcs_new(
         if pe2[0, 0, 1] <= pe1[0, 0, l + 1]:
             pr = (pe2[0, 0, 1] - v_pe1) / dp1[0, 0, l]
             q = (
-                q4_2
+                q4_2[0, 0, l]
                 + 0.5 * (q4_4[0, 0, l] + q4_3[0, 0, l] - q4_2[0, 0, l]) * (pr + pl)
                 - q4_4[0, 0, l] * 1.0 / 3.0 * (pr * (pr + pl) + pl * pl)
             )
@@ -245,7 +246,7 @@ def lcs_new(
                 - q4_4[0, 0, l] * 1.0 / 3.0 * (1.0 + pl * (1.0 + pl))
             )
             l = l + 1
-            while pe1[0, 0, l + 1] < pe2[0, 0, 1]:
+            while pe1[0, 0, l + 1] < pe2[0, 0, 1] and l < kmax:
                 qsum += dp1[0, 0, l] * q4_1[0, 0, l]
                 l = l + 1
             dp = pe2[0, 0, 1] - pe1[0, 0, l]
@@ -276,7 +277,19 @@ def lagrangian_contributions_stencil_new(
     origin: Tuple[int, int, int],
     domain: Tuple[int, int, int],
 ):
-    lcs_new(q1, pe1, pe2, q4_1, q4_2, q4_3, q4_4, dp1, origin=origin, domain=domain)
+    lcs_new(
+        q1,
+        pe1,
+        pe2,
+        q4_1,
+        q4_2,
+        q4_3,
+        q4_4,
+        dp1,
+        79,
+        origin=origin,
+        domain=(domain[0], domain[1], 1),
+    )
 
 
 def lagrangian_contributions_stencil(
