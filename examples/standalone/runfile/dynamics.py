@@ -232,23 +232,7 @@ if __name__ == "__main__":
             state["atmosphere_hybrid_a_coordinate"],
             state["atmosphere_hybrid_b_coordinate"],
             state["surface_geopotential"],
-        )
-
-        # warm-up timestep.
-        # We're intentionally not passing the timer here to exclude
-        # warmup/compilation from the internal timers
-        if rank == 0:
-            print("timestep 1")
-        dycore.step_dynamics(
-            state,
-            input_data["consv_te"],
-            input_data["do_adiabatic_init"],
-            input_data["bdt"],
-            input_data["ptop"],
-            input_data["n_split"],
-            input_data["ks"],
-        )
-
+        )       
     if profiler is not None:
         profiler.enable()
 
@@ -257,10 +241,10 @@ if __name__ == "__main__":
     # we set up a specific timer for each timestep
     # that is cleared after so we get individual statistics
     timestep_timer = util.Timer()
-    for i in range(args.time_step - 1):
+    for i in range(args.time_step):
         with timestep_timer.clock("mainloop"):
             if rank == 0:
-                print(f"timestep {i+2}")
+                print(f"timestep {i+1}")
             dycore.step_dynamics(
                 state,
                 input_data["consv_te"],
