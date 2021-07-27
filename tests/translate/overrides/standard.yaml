@@ -1,3 +1,7 @@
+C_SW:
+  - backend: gtc:cuda
+    max_error: 2.5e-9
+
 CS_Profile_2d:
   - backend: gtcuda
     max_error: 2.5e-9
