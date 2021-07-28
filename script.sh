@@ -22,3 +22,6 @@ pip install --find-links=/project/s1053/install/wheeldir -c constraints.txt -r r
 echo "3"
 pip list
 pip install -e .
+
+
+.jenkins/jenkins.sh run_regression_tests gtc:cuda c12_6ranks_standard
