@@ -82,6 +82,8 @@ if [ -f ${scheduler_script} ] ; then
     fi
 fi
 
+sed -i 's|00:45|03:30|g' ${scheduler_script}
+sed -i 's|cscsci\nexport CRAY_CUDA_MPS=1|debug|g' ${scheduler_script}
 # if this is a parallel job and the number of ranks is specified in the experiment argument, set NUM_RANKS
 # and update the scheduler script if there is one
 if grep -q "parallel" <<< "${script}"; then
