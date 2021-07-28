@@ -299,14 +299,15 @@ def test_mock_parallel_savepoint(
             ):
                 with _subtest(failing_ranks, subtests, varname=varname, rank=rank):
                     ref_data[varname].append(serializer.read(varname, savepoint_out))
+                    output_data = gt_utils.asarray(output[varname])
                     assert success(
-                        gt_utils.asarray(output[varname]),
+                        output_data,
                         ref_data[varname][-1],
                         testobj.max_error,
                         ignore_near_zero,
                         testobj.near_zero,
                     ), sample_wherefail(
-                        output[varname],
+                        output_data,
                         ref_data[varname][-1],
                         testobj.max_error,
                         print_failures,
