@@ -201,7 +201,7 @@ if grep -q "fv_dynamics" <<< "${script}"; then
     sed -i 's|00:45:00|00:15:00|g' ${run_timing_script}
     sed -i 's|<NTASKSPERNODE>|1|g' ${run_timing_script}
     sed -i 's/<CPUSPERTASK>/1/g' ${run_timing_script}
-    sed -i 's|cscsci|debug|g' ${run_timing_script}
+    sed -i 's|cscsci\nexport CRAY_CUDA_MPS=1|debug|g' ${run_timing_script}
     run_command "${script} ${backend} ${experiment} " Job2${action} ${G2G} ${run_timing_script}
     if [ $? -ne 0 ] ; then
     exitError 1511 ${LINENO} "problem while executing script ${script}"
