@@ -118,6 +118,8 @@ FVSubgridZ:
     max_error: 1e-8
   - backend: gtc:gt:gpu
     max_error: 1e-8
+  - backend: gtc:cuda
+    max_error: 1e-8
 
 DynCore:
  - backend: gtc:gt:gpu
