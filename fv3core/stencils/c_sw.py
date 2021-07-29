@@ -386,7 +386,6 @@ class CGridShallowWaterDynamics:
         self._vort = utils.make_storage_from_shape(shape)
         origin = self.grid.compute_origin()
         domain = self.grid.domain_shape_compute(add=(1, 1, 0))
-        ax_offsets = axis_offsets(self.grid, origin, domain)
 
         if self.namelist.nord > 0:
             self._uf_main = FrozenStencil(
@@ -685,7 +684,7 @@ class CGridShallowWaterDynamics:
                 self.grid.rdxc,
                 dt2,
             )
-        if self.grid.west_edge:
+        if self.grid.east_edge:
             self._update_east_velocity(
                 vort_c,
                 ke_c,
@@ -825,8 +824,6 @@ class CGridShallowWaterDynamics:
             self._tmp_fx1,
             self._tmp_fx2,
         )
-        # TODO(eddied): Why does auto-sync storage logic does not catch this?
-        utils.device_sync()
         corners.fill2_4corners(delp, pt, "y", self.grid)
         corners.fill_4corners(w, "y", self.grid)
         self._transportdelp_updatevorticity_and_ke(

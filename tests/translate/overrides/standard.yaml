@@ -1,3 +1,7 @@
+C_SW:
+  - backend: gtc:cuda
+    max_error: 2.5e-9
+
 CS_Profile_2d:
   - backend: gtcuda
     max_error: 2.5e-9
@@ -113,6 +117,8 @@ FVSubgridZ:
   - backend: gtcuda
     max_error: 1e-8
   - backend: gtc:gt:gpu
+    max_error: 1e-8
+  - backend: gtc:cuda
     max_error: 1e-8
 
 DynCore:
