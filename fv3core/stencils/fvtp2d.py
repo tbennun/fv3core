@@ -3,7 +3,7 @@ from gt4py.gtscript import PARALLEL, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.gt4py_utils as utils
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.stencils.delnflux import DelnFlux
 from fv3core.stencils.xppm import XPiecewiseParabolic
 from fv3core.stencils.yppm import YPiecewiseParabolic
@@ -114,6 +114,8 @@ class FiniteVolumeTransport:
             namelist, ord_outer, self.grid.is_, self.grid.ie
         )
 
+
+    @computepath_method
     def __call__(
         self,
         q,
@@ -142,15 +144,11 @@ class FiniteVolumeTransport:
             mfx: ???
             mfy: ???
         """
-        grid = self.grid
-        ii = 14
-        jj = 4
-        kk = 67
 
         self.y_piecewise_parabolic_inner(q, cry, self._tmp_fy2)
         self.stencil_q_i(
             q,
-            grid.area,
+            self.grid.area,
             y_area_flux,
             self._tmp_fy2,
             self._tmp_q_i,
@@ -160,12 +158,13 @@ class FiniteVolumeTransport:
         self.x_piecewise_parabolic_inner(q, crx, self._tmp_fx2)
         self.stencil_q_j(
             q,
-            grid.area,
+            self.grid.area,
             x_area_flux,
             self._tmp_fx2,
             self._tmp_q_j,
         )
         self.y_piecewise_parabolic_outer(self._tmp_q_j, cry, fy)
+
         if mfx is not None and mfy is not None:
             self.stencil_transport_flux_x(
                 fx,
@@ -182,7 +181,7 @@ class FiniteVolumeTransport:
                 and (self._nord is not None)
                 and (self._damp_c is not None)
             ):
-                self.delnflux(q, fx, fy, mass=mass)
+                self.delnflux(q, fx, fy, None, mass=mass)
         else:
             self.stencil_transport_flux_x(
                 fx,

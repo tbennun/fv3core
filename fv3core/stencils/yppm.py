@@ -1,9 +1,10 @@
+import dace
 from gt4py import gtscript
 from gt4py.gtscript import PARALLEL, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.gt4py_utils as utils
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.utils.typing import FloatField, FloatFieldIJ
 from fv3core.stencils.basic_operations import sign
 
@@ -185,8 +186,10 @@ class YPiecewiseParabolic:
             )
               
 
+    @computepath_method
     def compute_al(self, q):
         self._main_al_stencil(q, self._al)
+
        
     def compute_blbr_ord8plus(self, q):
         r3 = 1.0 / 3.0
@@ -194,8 +197,10 @@ class YPiecewiseParabolic:
         self._dm_jord8plus_stencil(q, self._al, self._dm)
         self._al_jord8plus_stencil(q, self._al, self._dm, r3)
         self._blbr_jord8_stencil(q, self._al, self._bl, self._br, self._dm)
-       
-    def __call__(self, q: FloatField, c: FloatField, flux: FloatField):
+
+
+    @computepath_method
+    def __call__(self, q, c, flux):
         """
         Compute y-flux using the PPM method.
 

@@ -2,6 +2,7 @@ import logging
 from functools import wraps
 from typing import Any, Callable, Dict, Hashable, List, Optional, Tuple, Union
 
+import dace
 import gt4py as gt
 import gt4py.storage as gt_storage
 import numpy as np
@@ -50,6 +51,10 @@ if MPI is not None and MPI.COMM_WORLD.Get_size() > 1:
         dir_name, MPI.COMM_WORLD.Get_rank()
     )
 
+dace.Config.set('default_build_folder', value="{gt_cache}/dacecache".format(
+    gt_cache=gt.config.cache_settings["dir_name"]
+))
+dace.Config.set('compiler', 'allow_view_arguments', value=True)
 
 # TODO remove when using quantities throughout model
 def quantity_name(name):
@@ -550,27 +555,3 @@ def stack(tup, axis: int = 0, out=None):
 def device_sync() -> None:
     if cp and global_config.is_gpu_backend():
         cp.cuda.Device(0).synchronize()
-
-
-"""
-    Usage:
-        if utils.backend == "numpy":  # Serialize numpy data...
-            utils.serialize("/tmp/compute", arr1=arr1, arr2=arr2, arr3=arr3, ...)
-        else:  # Derializize numpy data
-            data = utils.deserialize("/tmp/compute")
-            assert utils.success(arr1, data["arr1"])
-            and utils.success(arr2, data["arr2"])
-            and utils.success(arr3, data["arr3"])
-            ...
-"""
-
-
-def serialize(file: str, **kwargs):
-    arrays = {name: np.asarray(storage.data) for (name, storage) in kwargs.items()}
-    np.savez(file, **arrays)
-
-
-def deserialize(file: str):
-    if not file.endswith(".npz"):
-        file += ".npz"
-    return np.load(file)

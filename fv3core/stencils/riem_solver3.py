@@ -15,7 +15,7 @@ from gt4py.gtscript import (
 import fv3core._config as spec
 import fv3core.utils.global_constants as constants
 import fv3core.utils.gt4py_utils as utils
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.stencils.sim1_solver import Sim1Solver
 from fv3core.utils.typing import FloatField, FloatFieldIJ
 
@@ -140,25 +140,26 @@ class RiemannSolver3:
             domain=domain,
         )
 
+    @computepath_method
     def __call__(
         self,
         last_call: bool,
         dt: float,
-        cappa: FloatField,
+        cappa,
         ptop: float,
-        zs: FloatFieldIJ,
-        wsd: FloatField,
-        delz: FloatField,
-        q_con: FloatField,
-        delp: FloatField,
-        pt: FloatField,
-        zh: FloatField,
-        pe: FloatField,
-        ppe: FloatField,
-        pk3: FloatField,
-        pk: FloatField,
-        peln: FloatField,
-        w: FloatFieldIJ,
+        zs,
+        wsd,
+        delz,
+        q_con,
+        delp,
+        pt,
+        zh,
+        pe,
+        ppe,
+        pk3,
+        pk,
+        peln,
+        w,
     ):
         """
         Solves for the nonhydrostatic terms for vertical velocity (w)

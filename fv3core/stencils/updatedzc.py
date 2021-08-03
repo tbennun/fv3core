@@ -2,8 +2,9 @@ import gt4py.gtscript as gtscript
 from gt4py.gtscript import BACKWARD, FORWARD, PARALLEL, computation, interval
 
 import fv3core.utils.global_constants as constants
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.utils import gt4py_utils
+
 from fv3core.utils.typing import FloatField, FloatFieldIJ, FloatFieldK
 
 
@@ -105,14 +106,15 @@ class UpdateGeopotentialHeightOnCGrid:
             domain=self.grid.domain_shape_compute(add=(2, 2, 1)),
         )
 
+    @computepath_method
     def __call__(
         self,
-        dp_ref: FloatFieldK,
-        zs: FloatFieldIJ,
-        ut: FloatField,
-        vt: FloatField,
-        gz: FloatField,
-        ws: FloatFieldIJ,
+        dp_ref,
+        zs,
+        ut,
+        vt,
+        gz,
+        ws,
         dt: float,
     ):
         """

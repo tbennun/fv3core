@@ -5,7 +5,7 @@ import fv3core._config as spec
 import fv3core.stencils.delnflux as delnflux
 import fv3core.utils.global_constants as constants
 import fv3core.utils.gt4py_utils as utils
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.stencils.delnflux import DelnFluxNoSG
 from fv3core.stencils.divergence_damping import DivergenceDamping
 from fv3core.stencils.fvtp2d import FiniteVolumeTransport
@@ -653,6 +653,7 @@ class DGridShallowWaterLagrangianDynamics:
             self._tmp_damp_3d[0, 0, :], (self.grid.npz,), (0,)
         )
 
+    @computepath_method
     def __call__(
         self,
         delpc,
@@ -760,6 +761,7 @@ class DGridShallowWaterLagrangianDynamics:
                 yfx,
                 self._tmp_gx,
                 self._tmp_gy,
+                None,
                 mfx=self._tmp_fx,
                 mfy=self._tmp_fy,
             )

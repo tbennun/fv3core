@@ -1,6 +1,7 @@
+import dace
 from gt4py.gtscript import __INLINED, BACKWARD, FORWARD, PARALLEL, computation, interval
+import numpy as np
 
-#import dace
 import fv3core._config as spec
 import fv3core.stencils.basic_operations as basic
 import fv3core.stencils.d_sw as d_sw
@@ -15,7 +16,7 @@ import fv3core.utils.global_constants as constants
 import fv3core.utils.gt4py_utils as utils
 import fv3gfs.util
 import fv3gfs.util as fv3util
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.stencils.c_sw import CGridShallowWaterDynamics
 from fv3core.stencils.del2cubed import HyperdiffusionDamping
 from fv3core.stencils.pk3_halo import PK3Halo
@@ -206,7 +207,7 @@ class AcousticDynamics:
     Peforms the Lagrangian acoustic dynamics described by Lin 2004
     """
 
-    # @dace.method
+    # @computepath_method
     def dace_dummy(self, A):
         # self.__call__(state)
         return A + 2
@@ -373,11 +374,15 @@ class AcousticDynamics:
             domain=self.grid.domain_shape_full(add=(0, 0, 1)),
         )
 
-    def __call__(self, state, insert_temporaries: bool = True):
+    @computepath_method(skip_dacemode=True)
+    def __call__(self, state: dace.constant, insert_temporaries: dace.constant = True):
         # u, v, w, delz, delp, pt, pe, pk, phis, wsd, omga, ua, va, uc, vc, mfxd,
         # mfyd, cxd, cyd, pkz, peln, q_con, ak, bk, diss_estd, cappa, mdt, n_split,
         # akap, ptop, n_map, comm):
-        end_step = state.n_map == self.namelist.k_split
+        if state.n_map == self.namelist.k_split:
+            end_step = 1
+        else:
+            end_step = 0
         akap = constants.KAPPA
         dt = state.mdt / self.namelist.n_split
         dt2 = 0.5 * dt
@@ -387,10 +392,10 @@ class AcousticDynamics:
         # m_split = 1. + abs(dt_atmos)/real(k_split*n_split*abs(p_split))
         # n_split = nint( real(n0split)/real(k_split*abs(p_split)) * stretch_fac + 0.5 )
         ms = max(1, self.namelist.m_split / 2.0)
-        shape = state.delz.shape
+        # shape = state.delz.shape
         # NOTE: In Fortran model the halo update starts happens in fv_dynamics, not here
-        reqs = {}
         if self.do_halo_exchange:
+            reqs = {}
             for halovar in [
                 "q_con_quantity",
                 "cappa_quantity",
@@ -423,6 +428,7 @@ class AcousticDynamics:
         # called this because its timestep is usually limited by horizontal sound-wave
         # processes. Note this is often not the limiting factor near the poles, where
         # the speed of the polar night jets can exceed two-thirds of the speed of sound.
+        breed_vortex_inline = 1 if self.namelist.breed_vortex_inline else 0
         for it in range(n_split):
             # the Lagrangian dynamics have two parts. First we advance the C-grid winds
             # by half a time step (c_sw). Then the C-grid winds are used to define
@@ -435,7 +441,11 @@ class AcousticDynamics:
             # The pressure gradient force and elastic terms are then evaluated
             # backwards-in-time, to improve stability.
             remap_step = False
-            if self.namelist.breed_vortex_inline or (it == n_split - 1):
+            if it == n_split - 1:
+                tmpbool = True
+            else:
+                tmpbool = False
+            if breed_vortex_inline or tmpbool:
                 remap_step = True
             if not self.namelist.hydrostatic:
                 if self.do_halo_exchange:
@@ -470,7 +480,7 @@ class AcousticDynamics:
                     reqs["w_quantity"].wait()
 
             # compute the c-grid winds at t + 1/2 timestep
-            state.delpc, state.ptc = self.cgrid_shallow_water_lagrangian_dynamics(
+            delpc, ptc = self.cgrid_shallow_water_lagrangian_dynamics(
                 state.delp,
                 state.pt,
                 state.u,
@@ -514,9 +524,9 @@ class AcousticDynamics:
                     state.ptop,
                     state.phis,
                     state.ws3,
-                    state.ptc,
+                    ptc,
                     state.q_con,
-                    state.delpc,
+                    delpc,
                     state.gz,
                     state.pkc,
                     state.omga,
@@ -527,7 +537,7 @@ class AcousticDynamics:
                 self.grid.rdyc,
                 state.uc,
                 state.vc,
-                state.delpc,
+                delpc,
                 state.pkc,
                 state.gz,
                 dt2,
@@ -544,7 +554,7 @@ class AcousticDynamics:
             self.dgrid_shallow_water_lagrangian_dynamics(
                 state.vt,
                 state.delp,
-                state.ptc,
+                ptc,
                 state.pt,
                 state.u,
                 state.v,
@@ -692,7 +702,8 @@ class AcousticDynamics:
             cd = constants.CNST_0P20 * self.grid.da_min
             self._hyperdiffusion(state.heat_source, cd)
             if not self.namelist.hydrostatic:
-                delt_time_factor = abs(dt * self.namelist.delt_max)
+                tmp = dt * self.namelist.delt_max
+                delt_time_factor = (tmp*tmp)**0.5
                 self._compute_pkz_tempadjust(
                     state.delp,
                     state.delz,
@@ -702,3 +713,4 @@ class AcousticDynamics:
                     state.pkz,
                     delt_time_factor,
                 )
+

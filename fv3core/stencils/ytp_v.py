@@ -1,9 +1,10 @@
+import dace
 from gt4py import gtscript
 from gt4py.gtscript import __INLINED, PARALLEL, computation, interval
 
 import fv3core._config as spec
 import fv3core.utils.gt4py_utils as utils
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.stencils import xtp_u, yppm
 from fv3core.utils.typing import FloatField, FloatFieldIJ
 
@@ -106,7 +107,8 @@ class YTP_V:
             self.grid.je + 2,
         )
 
-    def __call__(self, c: FloatField, v: FloatField, flux: FloatField):
+    @computepath_method
+    def __call__(self, c, v, flux):
         """
         Compute flux of kinetic energy in y-dir.
 
