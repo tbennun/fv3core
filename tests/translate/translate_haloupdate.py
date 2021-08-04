@@ -2,14 +2,14 @@ import logging
 
 import fv3core._config as spec
 import fv3gfs.util as fv3util
-from fv3core.testing import ParallelTranslate
+from fv3core.testing import ParallelTranslateBaseSlicing
 from fv3core.utils import gt4py_utils as utils
 
 
 logger = logging.getLogger("fv3ser")
 
 
-class TranslateHaloUpdate(ParallelTranslate):
+class TranslateHaloUpdate(ParallelTranslateBaseSlicing):
 
     inputs = {
         "array": {
@@ -103,7 +103,7 @@ class TranslateMPPUpdateDomains(TranslateHaloUpdate):
     halo_update_varname = "z_wind_as_tendency_of_pressure"
 
 
-class TranslateHaloVectorUpdate(ParallelTranslate):
+class TranslateHaloVectorUpdate(ParallelTranslateBaseSlicing):
 
     inputs = {
         "array_u": {
@@ -167,7 +167,7 @@ class TranslateHaloVectorUpdate(ParallelTranslate):
         return self.outputs_list_from_state_list(state_list)
 
 
-class TranslateMPPBoundaryAdjust(ParallelTranslate):
+class TranslateMPPBoundaryAdjust(ParallelTranslateBaseSlicing):
 
     inputs = {
         "u": {
