@@ -137,8 +137,8 @@ class TranslateHaloVectorUpdate(ParallelTranslateBaseSlicing):
         super(TranslateHaloVectorUpdate, self).__init__(grid)
 
         self._base.in_vars["data_vars"] = {
-            "array_u": grid.x3d_domain_dict(),
-            "array_v": grid.y3d_domain_dict(),
+            "array_u": grid[0].x3d_domain_dict(),
+            "array_v": grid[0].y3d_domain_dict(),
         }
         self._base.out_vars = self._base.in_vars["data_vars"].copy()
 
@@ -207,8 +207,8 @@ class TranslateMPPBoundaryAdjust(ParallelTranslateBaseSlicing):
         super(TranslateMPPBoundaryAdjust, self).__init__(grid)
 
         self._base.in_vars["data_vars"] = {
-            "u": grid.y3d_domain_dict(),
-            "v": grid.x3d_domain_dict(),
+            "u": grid[0].y3d_domain_dict(),
+            "v": grid[0].x3d_domain_dict(),
         }
         self._base.out_vars = self._base.in_vars["data_vars"].copy()
 
