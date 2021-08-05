@@ -9,7 +9,7 @@ from fv3core.utils import gt4py_utils as utils
 logger = logging.getLogger("fv3ser")
 
 
-class TranslateHaloUpdate(ParallelTranslate):
+class TranslateHaloUpdate(ParallelTranslateBaseSlicing):
 
     inputs = {
         "array": {
