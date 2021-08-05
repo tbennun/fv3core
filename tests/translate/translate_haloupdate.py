@@ -2,7 +2,7 @@ import logging
 
 import fv3core._config as spec
 import fv3gfs.util as fv3util
-from fv3core.testing import ParallelTranslateBaseSlicing
+from fv3core.testing import ParallelTranslate, ParallelTranslateBaseSlicing
 from fv3core.utils import gt4py_utils as utils
 
 
@@ -35,9 +35,7 @@ class TranslateHaloUpdate(ParallelTranslateBaseSlicing):
 
     def compute_parallel(self, inputs, communicator):
         state = self.state_from_inputs(inputs)
-        req = communicator.start_halo_update(
-            state[self.halo_update_varname], n_points=utils.halo
-        )
+        req = communicator.start_halo_update(state[self.halo_update_varname], n_points=utils.halo)
         req.wait()
         return self.outputs_from_state(state)
 
@@ -138,6 +136,12 @@ class TranslateHaloVectorUpdate(ParallelTranslateBaseSlicing):
     def __init__(self, grid):
         super(TranslateHaloVectorUpdate, self).__init__(grid)
 
+        self._base.in_vars["data_vars"] = {
+            "array_u": grid.x3d_domain_dict(),
+            "array_v": grid.y3d_domain_dict(),
+        }
+        self._base.out_vars = self._base.in_vars["data_vars"].copy()
+
     def compute_parallel(self, inputs, communicator):
         logger.debug(f"starting on {communicator.rank}")
         state = self.state_from_inputs(inputs)
@@ -201,6 +205,12 @@ class TranslateMPPBoundaryAdjust(ParallelTranslateBaseSlicing):
 
     def __init__(self, grid):
         super(TranslateMPPBoundaryAdjust, self).__init__(grid)
+
+        self._base.in_vars["data_vars"] = {
+            "u": grid.y3d_domain_dict(),
+            "v": grid.x3d_domain_dict(),
+        }
+        self._base.out_vars = self._base.in_vars["data_vars"].copy()
 
     def compute_parallel(self, inputs, communicator):
         logger.debug(f"starting on {communicator.rank}")
