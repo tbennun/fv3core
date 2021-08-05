@@ -9,7 +9,7 @@ from fv3core.utils import gt4py_utils as utils
 logger = logging.getLogger("fv3ser")
 
 
-class TranslateHaloUpdate(ParallelTranslateBaseSlicing):
+class TranslateHaloUpdate(ParallelTranslate):
 
     inputs = {
         "array": {
@@ -76,6 +76,9 @@ class TranslateHaloUpdate_2(TranslateHaloUpdate):
     }
 
     halo_update_varname = "height_on_interface_levels"
+    def __init__(self, grid):
+        super().__init__(grid)
+        self._base.out_vars = {"array2": { "kend": grid[0].npz + 1}
 
 
 class TranslateMPPUpdateDomains(TranslateHaloUpdate):
