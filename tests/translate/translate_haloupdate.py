@@ -77,10 +77,6 @@ class TranslateHaloUpdate_2(TranslateHaloUpdate):
 
     halo_update_varname = "height_on_interface_levels"
     
-    def __init__(self, grid):
-        super().__init__(grid)
-        self._base.out_vars = {"array2": { "kend": grid[0].npz + 1}}
-
 
 class TranslateMPPUpdateDomains(TranslateHaloUpdate):
 
@@ -105,7 +101,7 @@ class TranslateMPPUpdateDomains(TranslateHaloUpdate):
     halo_update_varname = "z_wind_as_tendency_of_pressure"
 
 
-class TranslateHaloVectorUpdate(ParallelTranslateBaseSlicing):
+class TranslateHaloVectorUpdate(ParallelTranslate):
 
     inputs = {
         "array_u": {
@@ -140,12 +136,6 @@ class TranslateHaloVectorUpdate(ParallelTranslateBaseSlicing):
     def __init__(self, grid):
         super(TranslateHaloVectorUpdate, self).__init__(grid)
 
-        self._base.in_vars["data_vars"] = {
-            "array_u": grid[0].x3d_domain_dict(),
-            "array_v": grid[0].y3d_domain_dict(),
-        }
-        self._base.out_vars = self._base.in_vars["data_vars"].copy()
-
     def compute_parallel(self, inputs, communicator):
         logger.debug(f"starting on {communicator.rank}")
         state = self.state_from_inputs(inputs)
@@ -175,7 +165,7 @@ class TranslateHaloVectorUpdate(ParallelTranslateBaseSlicing):
         return self.outputs_list_from_state_list(state_list)
 
 
-class TranslateMPPBoundaryAdjust(ParallelTranslateBaseSlicing):
+class TranslateMPPBoundaryAdjust(ParallelTranslate):
 
     inputs = {
         "u": {
@@ -209,12 +199,6 @@ class TranslateMPPBoundaryAdjust(ParallelTranslateBaseSlicing):
 
     def __init__(self, grid):
         super(TranslateMPPBoundaryAdjust, self).__init__(grid)
-
-        self._base.in_vars["data_vars"] = {
-            "u": grid[0].y3d_domain_dict(),
-            "v": grid[0].x3d_domain_dict(),
-        }
-        self._base.out_vars = self._base.in_vars["data_vars"].copy()
 
     def compute_parallel(self, inputs, communicator):
         logger.debug(f"starting on {communicator.rank}")
