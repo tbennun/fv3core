@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 
 import copy
@@ -5,6 +6,7 @@ import json
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from typing import Any, Dict, List
+from types import SimpleNamespace
 
 import numpy as np
 import yaml
@@ -122,10 +124,11 @@ def gather_timing_data(
     return results
 
 
-def write_global_timings(experiment: Dict[str, Any]) -> None:
+def write_global_timings(backend, disabled_halos, experiment: Dict[str, Any]) -> None:
     now = datetime.now()
+    halo_str = "nohalos" if disabled_halos else ""
     filename = now.strftime("%Y-%m-%d-%H-%M-%S")
-    with open(filename + ".json", "w") as outfile:
+    with open(filename + backend + halo_str + ".json", "w") as outfile:
         json.dump(experiment, outfile, sort_keys=True, indent=4)
 
 
@@ -161,7 +164,25 @@ def collect_data_and_write_to_file(
     results = gather_timing_data(times_per_step, results, comm)
 
     if is_root:
-        write_global_timings(results)
+        write_global_timings(args.backend, args.disable_halo_exchange, results)
+
+def read_grid( serializer: serialbox.Serializer, rank: int = 0) -> fv3core.testing.TranslateGrid:
+    grid_savepoint = serializer.get_savepoint("Grid-Info")[0]
+    grid_data = {}
+    grid_fields = serializer.fields_at_savepoint(grid_savepoint)
+    for field in grid_fields:
+        grid_data[field] = serializer.read(field, grid_savepoint)
+        if len(grid_data[field].flatten()) == 1:
+            grid_data[field] = grid_data[field][0]
+    grid = fv3core.testing.TranslateGrid(grid_data, rank).python_grid()
+    return grid
+
+def read_input_data(grid, serializer):
+    savepoint_in = serializer.get_savepoint("DynCore-In")[0]
+    driver_object = fv3core.testing.TranslateDynCore([grid])
+    input_data = driver_object.collect_input_data(serializer, savepoint_in)
+    driver_object._base.make_storage_data_input_vars(input_data)
+    return input_data
 
 
 if __name__ == "__main__":
@@ -205,14 +226,7 @@ if __name__ == "__main__":
         )
 
         # get grid from serialized data
-        grid_savepoint = serializer.get_savepoint("Grid-Info")[0]
-        grid_data = {}
-        grid_fields = serializer.fields_at_savepoint(grid_savepoint)
-        for field in grid_fields:
-            grid_data[field] = serializer.read(field, grid_savepoint)
-            if len(grid_data[field].flatten()) == 1:
-                grid_data[field] = grid_data[field][0]
-        grid = fv3core.testing.TranslateGrid(grid_data, rank).python_grid()
+        grid = read_grid(serializer, rank)
         spec.set_grid(grid)
 
         # set up grid-dependent helper structures
@@ -221,33 +235,25 @@ if __name__ == "__main__":
         communicator = util.CubedSphereCommunicator(comm, partitioner)
 
         # create a state from serialized data
-        savepoint_in = serializer.get_savepoint("FVDynamics-In")[0]
-        driver_object = fv3core.testing.TranslateFVDynamics([grid])
-        input_data = driver_object.collect_input_data(serializer, savepoint_in)
-        input_data["comm"] = communicator
-        state = driver_object.state_from_inputs(input_data)
-        dycore = fv3core.DynamicalCore(
+        input_data = read_input_data(grid, serializer)
+        state = SimpleNamespace(**input_data)
+
+        acoustics = fv3core.AcousticDynamics(
             communicator,
             spec.namelist,
-            state["atmosphere_hybrid_a_coordinate"],
-            state["atmosphere_hybrid_b_coordinate"],
-            state["surface_geopotential"],
+            state.ak,
+            state.bk,
+            state.pfull,
+            state.phis
         )
+        state.__dict__.update(acoustics._temporaries)
 
         # warm-up timestep.
         # We're intentionally not passing the timer here to exclude
         # warmup/compilation from the internal timers
         if rank == 0:
             print("timestep 1")
-        dycore.step_dynamics(
-            state,
-            input_data["consv_te"],
-            input_data["do_adiabatic_init"],
-            input_data["bdt"],
-            input_data["ptop"],
-            input_data["n_split"],
-            input_data["ks"],
-        )
+        acoustics(state,insert_temporaries=False)
 
     if profiler is not None:
         profiler.enable()
@@ -258,19 +264,12 @@ if __name__ == "__main__":
     # that is cleared after so we get individual statistics
     timestep_timer = util.Timer()
     for i in range(args.time_step - 1):
-        with timestep_timer.clock("mainloop"):
-            if rank == 0:
-                print(f"timestep {i+2}")
-            dycore.step_dynamics(
-                state,
-                input_data["consv_te"],
-                input_data["do_adiabatic_init"],
-                input_data["bdt"],
-                input_data["ptop"],
-                input_data["n_split"],
-                input_data["ks"],
-                timestep_timer,
-            )
+        # this loop is not required, but make performance numbers comparable with FVDynamics
+        for _ in range(spec.namelist.k_split):
+            with timestep_timer.clock("DynCore"):
+                if rank == 0:
+                    print(f"timestep {i+2}")
+                acoustics(state,insert_temporaries=False)
         times_per_step.append(timestep_timer.times)
         hits_per_step.append(timestep_timer.hits)
         timestep_timer.reset()
