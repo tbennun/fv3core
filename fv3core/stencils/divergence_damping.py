@@ -1,13 +1,15 @@
 from types import SimpleNamespace
 
+import dace
 import gt4py.gtscript as gtscript
+import numpy as np
 from gt4py.gtscript import PARALLEL, computation, interval
 
 import fv3core._config as spec
 import fv3core.stencils.basic_operations as basic
 import fv3core.utils.corners as corners
 import fv3core.utils.gt4py_utils as utils
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.stencils.a2b_ord4 import AGrid2BGridFourthOrder
 from fv3core.utils.grid import axis_offsets
 from fv3core.utils.typing import FloatField, FloatFieldIJ, FloatFieldK
@@ -160,6 +162,8 @@ class DivergenceDamping:
         self._d2_bg_column = d2_bg
         self._nonzero_nord_k = 0
         self._nonzero_nord = int(namelist.nord)
+
+
         for k in range(len(self._nord_column)):
             if self._nord_column[k] > 0:
                 self._nonzero_nord_k = k
@@ -412,20 +416,56 @@ class DivergenceDamping:
         )
         ax_offsets = axis_offsets(self.grid, fill_origin, fill_domain)
 
+        n = 1
+        self.fillc1 = (
+            (n != self._nonzero_nord)
+            and self._grid_type < 3
+            and (
+                self.grid.sw_corner
+                or self.grid.se_corner
+                or self.grid.ne_corner
+                or self.grid.nw_corner
+            )
+        )
+        n = 2
+        self.fillc2 = (
+            (n != self._nonzero_nord)
+            and self._grid_type < 3
+            and (
+                self.grid.sw_corner
+                or self.grid.se_corner
+                or self.grid.ne_corner
+                or self.grid.nw_corner
+            )
+        )
+
+        n = 3
+        self.fillc3 = (
+            (n != self._nonzero_nord)
+            and self._grid_type < 3
+            and (
+                self.grid.sw_corner
+                or self.grid.se_corner
+                or self.grid.ne_corner
+                or self.grid.nw_corner
+            )
+        )
+
+    @computepath_method
     def __call__(
         self,
-        u: FloatField,
-        v: FloatField,
-        va: FloatField,
-        ptc: FloatField,
-        vort: FloatField,
-        ua: FloatField,
-        divg_d: FloatField,
-        vc: FloatField,
-        uc: FloatField,
-        delpc: FloatField,
-        ke: FloatField,
-        wk: FloatField,
+        u,
+        v,
+        va,
+        ptc,
+        vort,
+        ua,
+        divg_d,
+        vc,
+        uc,
+        delpc,
+        ke,
+        wk,
         dt: float,
     ) -> None:
 
@@ -438,18 +478,8 @@ class DivergenceDamping:
         )
         # for n in range(self._nonzero_nord):
 
-        n = 1
-        fillc = (
-            (n != self._nonzero_nord)
-            and self._grid_type < 3
-            and (
-                self.grid.sw_corner
-                or self.grid.se_corner
-                or self.grid.ne_corner
-                or self.grid.nw_corner
-            )
-        )
-        if fillc:
+
+        if self.fillc1:
             self.fill_corners_bgrid_x(
                 divg_d,
             )
@@ -458,7 +488,7 @@ class DivergenceDamping:
             self.grid.divg_u,
             vc,
         )
-        if fillc:
+        if self.fillc1:
             self.fill_corners_bgrid_y(
                 divg_d,
             )
@@ -467,7 +497,7 @@ class DivergenceDamping:
             self.grid.divg_v,
             uc,
         )
-        if fillc:
+        if self.fillc1:
             corners.fill_corners_dgrid(
                 vc, uc, self.grid, -1.0, kslice=slice(self._nonzero_nord_k, None)
             )
@@ -498,18 +528,7 @@ class DivergenceDamping:
                 divg_d,
             )
         # loop n = 2
-        n = 2
-        fillc = (
-            (n != self._nonzero_nord)
-            and self._grid_type < 3
-            and (
-                self.grid.sw_corner
-                or self.grid.se_corner
-                or self.grid.ne_corner
-                or self.grid.nw_corner
-            )
-        )
-        if fillc:
+        if self.fillc2:
             self.fill_corners_bgrid_x(
                 divg_d,
             )
@@ -518,7 +537,7 @@ class DivergenceDamping:
             self.grid.divg_u,
             vc,
         )
-        if fillc:
+        if self.fillc2:
             self.fill_corners_bgrid_y(
                 divg_d,
             )
@@ -527,7 +546,7 @@ class DivergenceDamping:
             self.grid.divg_v,
             uc,
         )
-        if fillc:
+        if self.fillc2:
             corners.fill_corners_dgrid(
                 vc, uc, self.grid, -1.0, kslice=slice(self._nonzero_nord_k, None)
             )
@@ -552,24 +571,14 @@ class DivergenceDamping:
                 uc,
                 divg_d,
             )
+
         if not self.grid.stretched_grid:
             self._adjustment_stencils2(
                 self.grid.rarea_c,
                 divg_d,
             )
         # loop n = 3
-        n = 3
-        fillc = (
-            (n != self._nonzero_nord)
-            and self._grid_type < 3
-            and (
-                self.grid.sw_corner
-                or self.grid.se_corner
-                or self.grid.ne_corner
-                or self.grid.nw_corner
-            )
-        )
-        if fillc:
+        if self.fillc3:
             self.fill_corners_bgrid_x(
                 divg_d,
             )
@@ -578,7 +587,7 @@ class DivergenceDamping:
             self.grid.divg_u,
             vc,
         )
-        if fillc:
+        if self.fillc3:
             self.fill_corners_bgrid_y(
                 divg_d,
             )
@@ -587,7 +596,7 @@ class DivergenceDamping:
             self.grid.divg_v,
             uc,
         )
-        if fillc:
+        if self.fillc3:
             corners.fill_corners_dgrid(
                 vc, uc, self.grid, -1.0, kslice=slice(self._nonzero_nord_k, None)
             )
@@ -618,6 +627,7 @@ class DivergenceDamping:
                 divg_d,
             )
         self.vorticity_calc(wk, vort, delpc, dt)
+
         self._damping_nord_highorder_stencil(
             vort,
             ke,
@@ -629,19 +639,20 @@ class DivergenceDamping:
             self._dd8,
         )
 
+    @computepath_method
     def damping_zero_order(
         self,
-        u: FloatField,
-        v: FloatField,
-        va: FloatField,
-        ptc: FloatField,
-        vort: FloatField,
-        ua: FloatField,
-        vc: FloatField,
-        uc: FloatField,
-        delpc: FloatField,
-        ke: FloatField,
-        d2_bg: FloatFieldK,
+        u,
+        v,
+        va,
+        ptc,
+        vort,
+        ua,
+        vc,
+        uc,
+        delpc,
+        ke,
+        d2_bg,
         dt: float,
     ) -> None:
         # if nested
@@ -735,6 +746,7 @@ class DivergenceDamping:
             dt,
         )
 
+    @computepath_method
     def vorticity_calc(self, wk, vort, delpc, dt):
         if self._dddmp < 1e-5:
             self._set_value(vort, 0.0)
@@ -743,5 +755,5 @@ class DivergenceDamping:
             self._smagorinksy_diffusion_approx_stencil(
                 delpc,
                 vort,
-                abs(dt),
+                (dt*dt)**0.5,
             )

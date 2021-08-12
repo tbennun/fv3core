@@ -1,5 +1,6 @@
 from typing import Optional
 
+import dace
 import gt4py.gtscript as gtscript
 import numpy as np
 from gt4py.gtscript import FORWARD, PARALLEL, computation, interval
@@ -7,7 +8,7 @@ from gt4py.gtscript import FORWARD, PARALLEL, computation, interval
 import fv3core._config as spec
 import fv3core.utils.corners as corners
 import fv3core.utils.gt4py_utils as utils
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.stencils.basic_operations import copy_defn
 from fv3core.utils.typing import FloatField, FloatFieldIJ, FloatFieldK
 
@@ -175,13 +176,14 @@ class DelnFlux:
 
         self.delnflux_nosg = DelnFluxNoSG(nord, nk=nk)
 
+    @computepath_method
     def __call__(
         self,
-        q: FloatField,
-        fx: FloatField,
-        fy: FloatField,
-        d2: Optional["FloatField"] = None,
-        mass: Optional["FloatField"] = None,
+        q,
+        fx,
+        fy,
+        d2=None,
+        mass=None,
     ):
         """
         Del-n damping for fluxes, where n = 2 * nord + 2
@@ -196,9 +198,10 @@ class DelnFlux:
             return fx, fy
 
         if d2 is None:
-            d2 = self._d2
+            self.delnflux_nosg(q, self._fx2, self._fy2, self._damp, self._d2, mass)
+        else:
+            self.delnflux_nosg(q, self._fx2, self._fy2, self._damp, d2, mass)
 
-        self.delnflux_nosg(q, self._fx2, self._fy2, self._damp, d2, mass)
 
         if mass is None:
             self._add_diffusive_stencil(fx, self._fx2, fy, self._fy2)
@@ -368,6 +371,7 @@ class DelnFluxNoSG:
             domain=(self._grid.nid, self._grid.njd, self._nk),
         )
 
+    @computepath_method
     def __call__(self, q, fx2, fy2, damp_c, d2, mass=None):
         """
         Applies del-n damping to fluxes, where n is set by nord.

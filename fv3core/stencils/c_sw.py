@@ -2,7 +2,7 @@ import gt4py.gtscript as gtscript
 from gt4py.gtscript import PARALLEL, computation, interval
 
 import fv3core.utils.gt4py_utils as utils
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.stencils.d2a2c_vect import DGrid2AGrid2CGridVectors
 from fv3core.utils import corners
 from fv3core.utils.grid import axis_offsets
@@ -268,6 +268,7 @@ def update_vorticity(
     with computation(PARALLEL), interval(...):
         fx = dxc * uc
         fy = dyc * vc
+    with computation(PARALLEL), interval(...):
         vort_c = fx[0, -1, 0] - fx - fy[-1, 0, 0] + fy
 
 
@@ -619,14 +620,15 @@ class CGridShallowWaterDynamics:
                 domain=(1, self.grid.njc, self.grid.npz),
             )
 
+    @computepath_method
     def _vorticitytransport_cgrid(
         self,
-        uc: FloatField,
-        vc: FloatField,
-        vort_c: FloatField,
-        ke_c: FloatField,
-        v: FloatField,
-        u: FloatField,
+        uc,
+        vc,
+        vort_c,
+        ke_c,
+        v,
+        u,
         dt2: float,
     ):
         """Update the C-Grid x and y velocity fields.
@@ -697,21 +699,22 @@ class CGridShallowWaterDynamics:
                 dt2,
             )
 
+    @computepath_method
     def __call__(
         self,
-        delp: FloatField,
-        pt: FloatField,
-        u: FloatField,
-        v: FloatField,
-        w: FloatField,
-        uc: FloatField,
-        vc: FloatField,
-        ua: FloatField,
-        va: FloatField,
-        ut: FloatField,
-        vt: FloatField,
-        divgd: FloatField,
-        omga: FloatField,
+        delp,
+        pt,
+        u,
+        v,
+        w,
+        uc,
+        vc,
+        ua,
+        va,
+        ut,
+        vt,
+        divgd,
+        omga,
         dt2: float,
     ):
         """

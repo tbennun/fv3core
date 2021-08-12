@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
+import copy
 from types import SimpleNamespace
 from typing import Any, Collection, Dict, List, Optional, Tuple
 
 import click
+import dace
+import numpy as np
 import serialbox
 import yaml
 from timing import collect_data_and_write_to_file
@@ -12,6 +15,7 @@ import fv3core._config as spec
 import fv3core.testing
 import fv3core.utils.global_config as global_config
 import fv3gfs.util as util
+from fv3core.decorators import computepath_function
 from fv3core.stencils.dyn_core import AcousticDynamics
 from fv3core.utils.grid import Grid
 
@@ -90,7 +94,7 @@ def get_state_from_input(grid: Grid, input_data: Dict[str, Any]) -> Dict[str, Si
         )
 
     statevars = SimpleNamespace(**input_data)
-    return {"state": statevars}
+    return statevars
 
 
 def set_up_communicator(

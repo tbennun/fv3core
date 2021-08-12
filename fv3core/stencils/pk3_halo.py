@@ -1,7 +1,8 @@
+import dace
 from gt4py.gtscript import FORWARD, computation, interval
 
 import fv3core.utils.gt4py_utils as utils
-from fv3core.decorators import FrozenStencil
+from fv3core.decorators import FrozenStencil, computepath_method
 from fv3core.utils.typing import FloatField, FloatFieldIJ
 
 
@@ -53,7 +54,8 @@ class PK3Halo:
             domain=edge_domain_y,
         )
 
-    def __call__(self, pk3: FloatField, delp: FloatField, ptop: float, akap: float):
+    @computepath_method
+    def __call__(self, pk3, delp, ptop: float, akap: float):
         """Update pressure (pk3) in halo region
 
         Args:
