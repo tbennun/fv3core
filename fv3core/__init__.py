@@ -1,4 +1,5 @@
 # flake8: noqa: F401
+from .stencils.dyn_core import AcousticDynamics
 from .stencils.fv_dynamics import DynamicalCore
 from .stencils.fv_subgridz import FVSubgridZ
 from .utils.global_config import (

@@ -1,16 +1,13 @@
-
 #!/usr/bin/env python3
 
 import copy
 import json
-from argparse import ArgumentParser, Namespace
+from argparse import Namespace
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
-import yaml
 from mpi4py import MPI
-
 
 
 def set_experiment_info(
@@ -41,14 +38,30 @@ def collect_keys_from_data(times_per_step: List[Dict[str, float]]) -> List[str]:
     return sorted_keys
 
 
+def put_data_into_dict(
+    times_per_step: List[Dict[str, float]], results: Dict[str, Any]
+) -> Dict[str, Any]:
+    keys = collect_keys_from_data(times_per_step)
+    data: List[float] = []
+    for timer_name in keys:
+        data.clear()
+        for data_point in times_per_step:
+            if timer_name in data_point:
+                data.append(data_point[timer_name])
+            results["times"][timer_name]["times"] = copy.deepcopy(data.tolist())
+    return results
+
+
 def gather_timing_data(
     times_per_step: List[Dict[str, float]],
     results: Dict[str, Any],
     comm: MPI.Comm,
     root: int = 0,
 ) -> Dict[str, Any]:
-    """returns an updated version of  the results dictionary owned
-    by the root node to hold data on the substeps as well as the main loop timers"""
+    """
+    returns an updated version of  the results dictionary owned
+    by the root node to hold data on the substeps as well as the main loop timers
+    """
     is_root = comm.Get_rank() == root
     keys = collect_keys_from_data(times_per_step)
     data: List[float] = []
@@ -91,21 +104,27 @@ def gather_hit_counts(
 
 
 def collect_data_and_write_to_file(
-    args: Namespace, comm: MPI.Comm, hits_per_step, times_per_step, experiment_name
+    args: Namespace, comm: Optional[MPI.Comm], hits_per_step, times_per_step, experiment_name
 ) -> None:
     """
     collect the gathered data from all the ranks onto rank 0 and write the timing file
     """
-    is_root = comm.Get_rank() == 0
+    if comm:
+        comm.Barrier()
+        is_root = comm.Get_rank() == 0
+    else:
+        is_root = True
+
     results = None
     if is_root:
         print("Gathering Times")
-        results = set_experiment_info(
-            experiment_name, args.time_step, args.backend, args.hash
-        )
+        results = set_experiment_info(experiment_name, args.time_step, args.backend, args.hash)
         results = gather_hit_counts(hits_per_step, results)
 
-    results = gather_timing_data(times_per_step, results, comm)
+    if comm:
+        results = gather_timing_data(times_per_step, results, comm)
+    else:
+        results = put_data_into_dict(times_per_step, results)
 
     if is_root:
         write_global_timings(args.backend, args.disable_halo_exchange, results)

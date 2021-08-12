@@ -3,18 +3,7 @@ import collections.abc
 import functools
 import inspect
 import types
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Hashable,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Union,
-    cast,
-)
+from typing import Any, Callable, Dict, Hashable, List, Mapping, Optional, Tuple, Union, cast
 
 import gt4py
 import gt4py.definitions
@@ -30,9 +19,7 @@ from fv3core.utils.global_config import StencilConfig
 from fv3core.utils.typing import Index3D
 
 
-ArgSpec = collections.namedtuple(
-    "ArgSpec", ["arg_name", "standard_name", "units", "intent"]
-)
+ArgSpec = collections.namedtuple("ArgSpec", ["arg_name", "standard_name", "units", "intent"])
 VALID_INTENTS = ["in", "out", "inout", "unknown"]
 
 
@@ -40,8 +27,7 @@ def state_inputs(*arg_specs):
     for sp in arg_specs:
         if sp.intent not in VALID_INTENTS:
             raise ValueError(
-                f"intent for {sp.arg_name} is {sp.intent}, "
-                "must be one of {VALID_INTENTS}"
+                f"intent for {sp.arg_name} is {sp.intent}, " "must be one of {VALID_INTENTS}"
             )
 
     def decorator(func):
@@ -67,9 +53,7 @@ def get_namespace(arg_specs, state):
                 f"{state[standard_name].units} when {units} is required"
             )
         elif intent not in VALID_INTENTS:
-            raise ValueError(
-                f"expected intent to be one of {VALID_INTENTS}, got {intent}"
-            )
+            raise ValueError(f"expected intent to be one of {VALID_INTENTS}, got {intent}")
         else:
             namespace_kwargs[arg_name] = state[standard_name].storage
             namespace_kwargs[arg_name + "_quantity"] = state[standard_name]
@@ -210,7 +194,7 @@ def get_written_fields(field_info) -> List[str]:
         field_name
         for field_name in field_info
         if field_info[field_name]
-        and field_info[field_name].access != gt4py.definitions.AccessKind.READ_ONLY
+        and field_info[field_name].access != gt4py.definitions.AccessKind.READ
     ]
     return write_fields
 
