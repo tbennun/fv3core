@@ -158,10 +158,10 @@ def driver(
 
         input_data = read_input_data(grid, serializer)
         experiment_name = get_experiment_name(data_directory)
-        state = SimpleNamespace(**input_data)
+        state = get_state_from_input(grid, input_data)
 
         acoustics = fv3core.AcousticDynamics(
-            mpi_comm, spec.namelist, state.ak, state.bk, state.pfull, state.phis
+            communicator, spec.namelist, state.ak, state.bk, state.pfull, state.phis
         )
         state.__dict__.update(acoustics._temporaries)
 
@@ -179,12 +179,14 @@ def driver(
         )
     total_timer.stop("total")
     times_per_step, hits_per_step = read_and_reset_timer(
-        timestep_timer, times_per_step, hits_per_step
+        total_timer, times_per_step, hits_per_step
     )
 
     if print_timings:
         # Collect times and output statistics in json
-        collect_data_and_write_to_file(mpi_comm, hits_per_step, times_per_step, experiment_name)
+        collect_data_and_write_to_file(
+            mpi_comm, hits_per_step, times_per_step, experiment_name, time_steps, backend
+        )
 
     print("SUCCESS")
 

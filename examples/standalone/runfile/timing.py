@@ -48,7 +48,7 @@ def put_data_into_dict(
         for data_point in times_per_step:
             if timer_name in data_point:
                 data.append(data_point[timer_name])
-            results["times"][timer_name]["times"] = copy.deepcopy(data.tolist())
+            results["times"][timer_name]["times"] = copy.deepcopy(data)
     return results
 
 
@@ -104,7 +104,13 @@ def gather_hit_counts(
 
 
 def collect_data_and_write_to_file(
-    args: Namespace, comm: Optional[MPI.Comm], hits_per_step, times_per_step, experiment_name
+    comm: Optional[MPI.Comm],
+    hits_per_step,
+    times_per_step,
+    experiment_name,
+    time_step,
+    backend,
+    hash="",
 ) -> None:
     """
     collect the gathered data from all the ranks onto rank 0 and write the timing file
@@ -118,7 +124,7 @@ def collect_data_and_write_to_file(
     results = None
     if is_root:
         print("Gathering Times")
-        results = set_experiment_info(experiment_name, args.time_step, args.backend, args.hash)
+        results = set_experiment_info(experiment_name, time_step, backend, hash)
         results = gather_hit_counts(hits_per_step, results)
 
     if comm:
@@ -127,4 +133,4 @@ def collect_data_and_write_to_file(
         results = put_data_into_dict(times_per_step, results)
 
     if is_root:
-        write_global_timings(args.backend, args.disable_halo_exchange, results)
+        write_global_timings(backend, bool(comm), results)
