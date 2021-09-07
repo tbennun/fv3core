@@ -2,6 +2,10 @@ import hashlib
 import os
 from collections.abc import Hashable
 
+from gt4py import config as gt_config
+
+gt_config.build_settings["extra_compile_args"]["cxx"].append("--param ggc-min-expand=0")
+
 
 def getenv_bool(name: str, default: str) -> bool:
     indicator = os.getenv(name, default).title()
