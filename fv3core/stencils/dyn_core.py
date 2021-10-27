@@ -330,6 +330,8 @@ class AcousticDynamics:
         bk: FloatFieldK,
         pfull: FloatFieldK,
         phis: FloatFieldIJ,
+        ptop: float,
+        ks: int
     ):
         """
         Args:
@@ -345,6 +347,9 @@ class AcousticDynamics:
             bk: atmosphere hybrid b coordinate (dimensionless)
             pfull: atmospheric Eulerian grid reference pressure (Pa)
             phis: surface geopotential height
+            ptop: pressure at top of atmosphere
+            ks: the lowest index (highest layer) for which rayleigh friction
+                and other rayleigh computations are done
         """
         self.comm = comm
         self.config = config
@@ -354,6 +359,7 @@ class AcousticDynamics:
         self._da_min = damping_coefficients.da_min
         self.grid_data = grid_data
         self._pfull = pfull
+        self._ptop = ptop
         self._nk_heat_dissipation = get_nk_heat_dissipation(
             config.d_grid_shallow_water,
             npz=grid_indexing.domain[2],
@@ -479,6 +485,8 @@ class AcousticDynamics:
                 rf_cutoff=config.rf_cutoff,
                 tau=config.tau,
                 hydrostatic=config.hydrostatic,
+                ptop=self._ptop,
+                ks = ks
             )
         self._compute_pkz_tempadjust = _initialize_temp_adjust_stencil(
             grid_indexing,
@@ -568,7 +576,7 @@ class AcousticDynamics:
                     self._set_pem(
                         state.delp,
                         state.pem,
-                        state.ptop,
+                        self._ptop,
                     )
             self._halo_updaters.u__v.wait()
             if not self.config.hydrostatic:
@@ -613,7 +621,7 @@ class AcousticDynamics:
                 self.riem_solver_c(
                     dt2,
                     state.cappa,
-                    state.ptop,
+                    self._ptop,
                     state.phis,
                     state.ws3,
                     state.ptc,
@@ -693,7 +701,7 @@ class AcousticDynamics:
                     remap_step,
                     dt,
                     state.cappa,
-                    state.ptop,
+                    self._ptop,
                     self._zs,
                     state.wsd,
                     state.delz,
@@ -712,13 +720,13 @@ class AcousticDynamics:
                 self._halo_updaters.zh.start([state.zh_quantity])
                 self._halo_updaters.pkc.start([state.pkc_quantity])
                 if remap_step:
-                    self._edge_pe_stencil(state.pe, state.delp, state.ptop)
+                    self._edge_pe_stencil(state.pe, state.delp, self._ptop)
                 if self.config.use_logp:
                     raise NotImplementedError(
                         "unimplemented namelist option use_logp=True"
                     )
                 else:
-                    self._pk3_halo(state.pk3, state.delp, state.ptop, akap)
+                    self._pk3_halo(state.pk3, state.delp, self._ptop, akap)
             if not self.config.hydrostatic:
                 self._halo_updaters.zh.wait()
                 self._compute_geopotential_stencil(
@@ -735,13 +743,11 @@ class AcousticDynamics:
                     state.pk3,
                     state.delp,
                     dt,
-                    state.ptop,
+                    self._ptop,
                     akap,
                 )
 
             if self.config.rf_fast:
-                # TODO: Pass through ks, or remove, inconsistent representation vs
-                # Fortran.
                 self._rayleigh_damping(
                     state.u,
                     state.v,
@@ -749,8 +755,6 @@ class AcousticDynamics:
                     self._dp_ref,
                     self._pfull,
                     dt,
-                    state.ptop,
-                    state.ks,
                 )
 
             if it != n_split - 1:

@@ -142,8 +142,10 @@ class RayleighDamping:
     Fotran name: ray_fast.
     """
 
-    def __init__(self, grid_indexing: GridIndexing, rf_cutoff, tau, hydrostatic):
+    def __init__(self, grid_indexing: GridIndexing, rf_cutoff, tau, hydrostatic, ptop: float, ks: int):
         self._rf_cutoff = rf_cutoff
+        self._ptop = ptop
+        self._ks = ks
         origin, domain = grid_indexing.get_origin_domain(
             [X_INTERFACE_DIM, Y_INTERFACE_DIM, Z_DIM]
         )
@@ -174,10 +176,8 @@ class RayleighDamping:
         dp: FloatFieldK,
         pfull: FloatFieldK,
         dt: float,
-        ptop: float,
-        ks: int,
     ):
-        rf_cutoff_nudge = self._rf_cutoff + min(100.0, 10.0 * ptop)
+        rf_cutoff_nudge = self._rf_cutoff + min(100.0, 10.0 * self._ptop)
 
         self._ray_fast_wind_compute(
             u,
@@ -186,7 +186,7 @@ class RayleighDamping:
             dp,
             pfull,
             dt,
-            ptop,
+            self._ptop,
             rf_cutoff_nudge,
-            ks,
+            self._ks,
         )

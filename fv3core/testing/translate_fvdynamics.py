@@ -194,10 +194,8 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
             "units": "Pa/s",
         },
         "do_adiabatic_init": {"dims": []},
-        "consv_te": {"dims": []},
         "bdt": {"dims": []},
         "ptop": {"dims": []},
-        "n_split": {"dims": []},
         "ks": {"dims": []},
     }
 
@@ -205,10 +203,8 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
 
     for name in (
         "do_adiabatic_init",
-        "consv_te",
         "bdt",
         "ptop",
-        "n_split",
         "ak",
         "bk",
         "ks",
@@ -305,11 +301,9 @@ class TranslateFVDynamics(ParallelTranslateBaseSlicing):
         )
         self.dycore.step_dynamics(
             state,
-            inputs["consv_te"],
             inputs["do_adiabatic_init"],
             inputs["bdt"],
             inputs["ptop"],
-            inputs["n_split"],
             inputs["ks"],
         )
         outputs = self.outputs_from_state(state)

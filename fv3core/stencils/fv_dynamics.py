@@ -53,6 +53,7 @@ def init_pfull(
 def compute_preamble(
     state,
     is_root_rank: bool,
+    consv_te: bool,
     config: DynamicalCoreConfig,
     fv_setup_stencil: FrozenStencil,
     pt_adjust_stencil: FrozenStencil,
@@ -79,7 +80,7 @@ def compute_preamble(
         state.dp1,
     )
 
-    if state.consv_te > 0 and not state.do_adiabatic_init:
+    if consv_te > 0 and not state.do_adiabatic_init:
         raise NotImplementedError(
             "compute total energy is not implemented, it needs an allReduce"
         )
@@ -194,60 +195,6 @@ class DynamicalCore:
     Corresponds to fv_dynamics in original Fortran sources.
     """
 
-    arg_specs = (
-        ArgSpec("qvapor", "specific_humidity", "kg/kg", intent="inout"),
-        ArgSpec("qliquid", "cloud_water_mixing_ratio", "kg/kg", intent="inout"),
-        ArgSpec("qrain", "rain_mixing_ratio", "kg/kg", intent="inout"),
-        ArgSpec("qsnow", "snow_mixing_ratio", "kg/kg", intent="inout"),
-        ArgSpec("qice", "cloud_ice_mixing_ratio", "kg/kg", intent="inout"),
-        ArgSpec("qgraupel", "graupel_mixing_ratio", "kg/kg", intent="inout"),
-        ArgSpec("qo3mr", "ozone_mixing_ratio", "kg/kg", intent="inout"),
-        ArgSpec("qsgs_tke", "turbulent_kinetic_energy", "m**2/s**2", intent="inout"),
-        ArgSpec("qcld", "cloud_fraction", "", intent="inout"),
-        ArgSpec("pt", "air_temperature", "degK", intent="inout"),
-        ArgSpec(
-            "delp", "pressure_thickness_of_atmospheric_layer", "Pa", intent="inout"
-        ),
-        ArgSpec("delz", "vertical_thickness_of_atmospheric_layer", "m", intent="inout"),
-        ArgSpec("peln", "logarithm_of_interface_pressure", "ln(Pa)", intent="inout"),
-        ArgSpec("u", "x_wind", "m/s", intent="inout"),
-        ArgSpec("v", "y_wind", "m/s", intent="inout"),
-        ArgSpec("w", "vertical_wind", "m/s", intent="inout"),
-        ArgSpec("ua", "eastward_wind", "m/s", intent="inout"),
-        ArgSpec("va", "northward_wind", "m/s", intent="inout"),
-        ArgSpec("uc", "x_wind_on_c_grid", "m/s", intent="inout"),
-        ArgSpec("vc", "y_wind_on_c_grid", "m/s", intent="inout"),
-        ArgSpec("q_con", "total_condensate_mixing_ratio", "kg/kg", intent="inout"),
-        ArgSpec("pe", "interface_pressure", "Pa", intent="inout"),
-        ArgSpec("phis", "surface_geopotential", "m^2 s^-2", intent="in"),
-        ArgSpec(
-            "pk",
-            "interface_pressure_raised_to_power_of_kappa",
-            "unknown",
-            intent="inout",
-        ),
-        ArgSpec(
-            "pkz",
-            "layer_mean_pressure_raised_to_power_of_kappa",
-            "unknown",
-            intent="inout",
-        ),
-        ArgSpec("ps", "surface_pressure", "Pa", intent="inout"),
-        ArgSpec("omga", "vertical_pressure_velocity", "Pa/s", intent="inout"),
-        ArgSpec("ak", "atmosphere_hybrid_a_coordinate", "Pa", intent="in"),
-        ArgSpec("bk", "atmosphere_hybrid_b_coordinate", "", intent="in"),
-        ArgSpec("mfxd", "accumulated_x_mass_flux", "unknown", intent="inout"),
-        ArgSpec("mfyd", "accumulated_y_mass_flux", "unknown", intent="inout"),
-        ArgSpec("cxd", "accumulated_x_courant_number", "", intent="inout"),
-        ArgSpec("cyd", "accumulated_y_courant_number", "", intent="inout"),
-        ArgSpec(
-            "diss_estd",
-            "dissipation_estimate_from_heat_source",
-            "unknown",
-            intent="inout",
-        ),
-    )
-
     def __init__(
         self,
         comm: fv3gfs.util.CubedSphereCommunicator,
@@ -258,6 +205,8 @@ class DynamicalCore:
         ak: fv3gfs.util.Quantity,
         bk: fv3gfs.util.Quantity,
         phis: fv3gfs.util.Quantity,
+        ptop: float,
+        ks: int    
     ):
         """
         Args:
@@ -270,6 +219,9 @@ class DynamicalCore:
             ak: atmosphere hybrid a coordinate (Pa)
             bk: atmosphere hybrid b coordinate (dimensionless)
             phis: surface geopotential height
+            ptop: pressure at top of atmosphere
+            ks: the lowest index (highest layer) for which rayleigh friction
+                and other rayleigh computations are done
         """
         # nested and stretched_grid are options in the Fortran code which we
         # have not implemented, so they are hard-coded here.
@@ -295,7 +247,8 @@ class DynamicalCore:
         self.grid_indexing = grid_indexing
         self._da_min = damping_coefficients.da_min
         self.config = config
-
+        self._ptop = ptop
+        self._ks = ks
         tracer_transport = fvtp2d.FiniteVolumeTransport(
             grid_indexing=grid_indexing,
             grid_data=grid_data,
@@ -353,6 +306,8 @@ class DynamicalCore:
             self._bk,
             self._pfull,
             self._phis,
+            self._ptop,
+            self._ks
         )
         self._hyperdiffusion = HyperdiffusionDamping(
             grid_indexing,
@@ -393,13 +348,9 @@ class DynamicalCore:
 
     def step_dynamics(
         self,
-        state: Mapping[str, fv3gfs.util.Quantity],
-        conserve_total_energy: bool,
+        state: Mapping[str, fv3gfs.util.Quantity], # TODO type-hint DycoreState
         do_adiabatic_init: bool,
         timestep: float,
-        ptop,
-        n_split: int,
-        ks: int,
         timer: fv3gfs.util.Timer = fv3gfs.util.NullTimer(),
     ):
         """
@@ -407,29 +358,15 @@ class DynamicalCore:
 
         Args:
             state: model prognostic state and inputs
-            conserve_total_energy: if True, conserve total energy
             do_adiabatic_init: if True, do adiabatic dynamics. Used
                 for model initialization.
             timestep: time to progress forward in seconds
-            ptop: pressure at top of atmosphere
-            n_split: number of acoustic timesteps per remapping timestep
-            ks: the lowest index (highest layer) for which rayleigh friction
-                and other rayleigh computations are done
             timer: if given, use for timing model execution
         """
-        state = get_namespace(self.arg_specs, state)
-        state.__dict__.update(
-            {
-                "consv_te": conserve_total_energy,
-                "bdt": timestep,
-                "mdt": timestep / self.config.k_split,
-                "do_adiabatic_init": do_adiabatic_init,
-                "ptop": ptop,
-                "n_split": n_split,
-                "k_split": self.config.k_split,
-                "ks": ks,
-            }
-        )
+        state.bdt = timestep
+        state.mdt = timestep / self.config.k_split
+        state.do_adiabatic_init =  do_adiabatic_init
+    
         self._compute(state, timer)
 
     def _compute(
@@ -449,14 +386,15 @@ class DynamicalCore:
         compute_preamble(
             state,
             is_root_rank=self.comm.rank == 0,
+            consv_te=self.config.consv_te,
             config=self.config,
             fv_setup_stencil=self._fv_setup_stencil,
             pt_adjust_stencil=self._pt_adjust_stencil,
         )
 
-        for n_map in range(state.k_split):
+        for n_map in range(self.config.k_split):
             state.n_map = n_map + 1
-            last_step = n_map == state.k_split - 1
+            last_step = n_map == self.config.k_split - 1
             self._dyn(state, tracers, timer)
 
             if self.grid_indexing.domain[2] > 4:
@@ -501,12 +439,12 @@ class DynamicalCore:
                         self._bk,
                         self._pfull,
                         state.dp1,
-                        state.ptop,
+                        self._ptop,
                         constants.KAPPA,
                         constants.ZVIR,
                         last_step,
-                        state.consv_te,
-                        state.bdt / state.k_split,
+                        self.config.consv_te,
+                        state.mdt,
                         state.bdt,
                         state.do_adiabatic_init,
                         NQ,
