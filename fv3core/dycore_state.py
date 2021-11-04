@@ -74,6 +74,9 @@ class DycoreState:
             if not variable_name in field_names:
                 raise KeyError(variable_name + ' is provided, but not part of the dycore state')
             getattr(state, variable_name).data[:] = data
+        for field_name in field_names:
+            if not field_name in dict_of_numpy_arrays.keys():
+                raise KeyError(field_name + ' is not included in the provided dictionary of numpy arrays')
         return state
 
 
