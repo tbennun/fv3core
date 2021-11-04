@@ -412,6 +412,8 @@ def _great_circle_beta_lon_lat(lon1, lon2, lat1, lat2, np):
         )
         * 2.0
     )
+#beta = asin( sqrt( sin((p1(2)-p2(2))/2.)**2 + cos(p1(2))*cos(p2(2))*   &
+#                         sin((p1(1)-p2(1))/2.)**2 ) ) * 2.
 
 
 def great_circle_distance_along_axis(lon, lat, radius, np, axis=0):

@@ -6,6 +6,7 @@ from .gnomonic import (
     global_gnomonic_ed,
     gnomonic_grid,
     great_circle_distance_along_axis,
+    great_circle_distance_lon_lat,
     local_gnomonic_ed,
     lon_lat_corner_to_cell_center,
     lon_lat_midpoint,
