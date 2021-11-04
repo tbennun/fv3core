@@ -2,7 +2,7 @@ from dataclasses import dataclass, field, fields, InitVar
 from fv3core.utils.typing import FloatField, FloatFieldIJ, FloatFieldK, Float
 import fv3gfs.util as fv3util 
 import fv3core
-
+from typing import Optional
 @dataclass()
 class DycoreState:
     u: FloatField = field(metadata={"name": "x_wind", "dims": [fv3util.X_DIM, fv3util.Y_INTERFACE_DIM, fv3util.Z_DIM], "units": "m/s", "intent":"inout"})
@@ -42,21 +42,22 @@ class DycoreState:
     bdt: float = field(default=0.0)
     mdt: float = field(default=0.0)
 
-    def __post_init__(self, quantity_factory):
-        # creating quantities around the storages
-        # TODO, when dycore and physics use quantities everywhere
-        # change fields to be quantities and remove this extra processing
-        for field in fields(self):
-            if "dims" in field.metadata.keys():
-                dims = field.metadata["dims"]
-                quantity = fv3util.Quantity(
-                    getattr(self, field.name),
-                    dims,
-                    field.metadata["units"],
-                    origin=quantity_factory._sizer.get_origin(dims),
-                    extent=quantity_factory._sizer.get_extent(dims),
-                )
-                setattr(self, field.name + '_quantity', quantity)
+    def __post_init__(self, quantity_factory: Optional[fv3util.QuantityFactory]):
+        if quantity_factory is not None:
+            # creating quantities around the storages
+            # TODO, when dycore and physics use quantities everywhere
+            # change fields to be quantities and remove this extra processing
+            for field in fields(self):
+                if "dims" in field.metadata.keys():
+                    dims = field.metadata["dims"]
+                    quantity = fv3util.Quantity(
+                        getattr(self, field.name),
+                        dims,
+                        field.metadata["units"],
+                        origin=quantity_factory._sizer.get_origin(dims),
+                        extent=quantity_factory._sizer.get_extent(dims),
+                    )
+                    setattr(self, field.name + '_quantity', quantity)
     @classmethod
     def init_empty(cls, quantity_factory):
         initial_storages = {}
@@ -71,10 +72,24 @@ class DycoreState:
         field_names = [field.name for field in fields(cls)]
         for variable_name, data in dict_of_numpy_arrays:
             if not variable_name in field_names:
-                raise KeyError(variable_name + " is provided, but not part of the dycore state")
+                raise KeyError(variable_name + ' is provided, but not part of the dycore state')
             getattr(state, variable_name).data[:] = data
         return state
 
+
+    @classmethod
+    def init_from_quantities(cls, dict_of_quantities):
+        field_names = [field.name for field in fields(cls)]
+        for variable_name, data in dict_of_quantities:
+            if not variable_name in field_names:
+                raise KeyError(variable_name + ' is provided, but not part of the dycore state')
+            getattr(state, variable_name).data[:] = data
+        for field_name in field_names:
+            if not field_name in dict_of_quantities.keys():
+                raise KeyError(field_name + ' is not included in the provided dictionary of quantities')
+            elif not isinstance(dict_of_quantities[field_name], fv3util.Quantity):
+                raise TypeError(field_name + ' is not a Quantity, but instead a ' + type(dict_of_quantities[field_name]))
+        return cls(**dict_of_quantities, quantity_factory=None)
     
     @classmethod
     def init_from_serialized_data(cls, serializer, grid, quantity_factory):
