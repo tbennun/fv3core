@@ -165,7 +165,7 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
             "pt": {},
             #"delp": {},
             #"qvapor": {},
-            #"phis": {},
+            "phis": {},
             #"delz": {},
            
             #"ze0": grid.compute_dict(),
@@ -174,7 +174,8 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
         self.ignore_near_zero_errors = {}
         for var in ['u', 'v']:
             self.ignore_near_zero_errors[var] = {'near_zero': 1e-13}
-
+       
+        self.max_error = 1e-13
     def compute(self, inputs):
         self.make_storage_data_input_vars(inputs)
         # testing just numpy arrays for this
@@ -184,6 +185,8 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
         full_shape = self.grid.domain_shape_full(add=(1, 1, 1))
         for variable in ["u", "v", "pt"]:
             inputs[variable] = np.zeros(full_shape)
+        for var2d in ["phis"]:
+            inputs[var2d] = np.zeros(full_shape[0:2])
         baroclinic_init.baroclinic_initialization(**inputs, grid=self.grid)
         return self.slice_output(inputs)
 

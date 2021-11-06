@@ -7,11 +7,17 @@ u0 = 35.0
 pcen = [math.pi / 9.0, 2.0 * math.pi / 9.0]
 u1 = 1.0
 pt0 = 0.0
+eta_0 = 0.252
+eta_s = 1.0 # surface level
+eta_t = 0.2 # tropopause
+t_0 = 288.0
+delta_t = 480000.0
+lapse_rate = 0.005
+
 # RADIUS = 6.3712e6 vs Jabowski paper  6.371229 1e6
 r0 = constants.RADIUS / 10.0 # specifically for test case == 13, otherwise r0 = 1
 # Equation (1) Jablonowski & Williamson Baroclinic test case Perturbation. DCMIP 2016 
 def compute_eta(eta, eta_v, ak, bk):
-    eta_0 = 0.252
     eta[:] = 0.5 * ((ak[:-1] + ak[1:])/1.e5 + bk[:-1] + bk[1:])
     eta_v[:] = (eta[:] - eta_0) * math.pi * 0.5
 
@@ -64,8 +70,11 @@ def wind_component_calc(utmp, eta_v, longitude_dgrid, latitude_dgrid, ee, islice
 
 
 def compute_temperature_component(eta, eta_v, t_mean, latitude, islice, jslice):
-    return t_mean + 0.75*(eta[:] * math.pi * u0 / constants. RDGAS) * np.sin(eta_v[:])*np.sqrt(np.cos(eta_v[:])) * (( -2.0 * (np.sin(latitude[islice, jslice, None])**6.0) *(np.cos(latitude[islice, jslice, None])**2.0 + 1.0/3.0) + 10.0/63.0 ) *2.0*u0*np.cos(eta_v[:])**(3.0/2.0) + ((8.0/5.0)*(np.cos(latitude[islice, jslice, None])**3.0)*(np.sin(latitude[islice, jslice, None])**2.0 + 2.0/3.0) - math.pi/4.0 )*constants.RADIUS * constants.OMEGA )
+    return t_mean + 0.75*(eta[:] * math.pi * u0 / constants. RDGAS) * np.sin(eta_v[:])*np.sqrt(np.cos(eta_v[:])) * (( -2.0 * (np.sin(latitude[islice, jslice, None])**6.0) *(np.cos(latitude[islice, jslice, None])**2.0 + 1.0/3.0) + 10.0/63.0 ) *2.0*u0*np.cos(eta_v[:])**(3.0/2.0) + ((8.0/5.0)*(np.cos(latitude[islice, jslice, None])**3.0)*(np.sin(latitude[islice, jslice, None])**2.0 + 2.0/3.0) - math.pi/4.0 ) * constants.RADIUS * constants.OMEGA )
 
+def compute_surface_geopotential_component(latitude, islice, jslice):
+    u_comp = u0 * (np.cos((eta_s-eta_0)*math.pi/2.0))**(3.0/2.0)
+    return  u_comp * (( -2.0*(np.sin(latitude[islice, jslice])**6.0) * (np.cos(latitude[islice, jslice])**2.0 + 1.0/3.0) + 10.0/63.0 ) * u_comp + ((8.0/5.0)*(np.cos(latitude[islice, jslice])**3.0)*(np.sin(latitude[islice, jslice])**2.0 + 2.0/3.0) - math.pi/4.0 )*constants.RADIUS * constants.OMEGA)
 """
 tobias -- daint
 nvidia florian
@@ -85,7 +94,7 @@ higher dimensional storages florian
 tobias -- halo updates -- dace orchestrated, and consolidating 
 """
 
-def baroclinic_initialization(qvapor, delp, u, v, pt, eta, eta_v, grid, ptop):
+def baroclinic_initialization(qvapor, delp, u, v, pt, phis, eta, eta_v, grid, ptop):
     nx, ny, nz = grid.domain_shape_compute()
     shape = (nx, ny, nz)
   
@@ -123,11 +132,7 @@ def baroclinic_initialization(qvapor, delp, u, v, pt, eta, eta_v, grid, ptop):
     ny = full_ny - 2 * nhalo - 1
     islice = slice(nhalo, nhalo + nx)
     jslice = slice(nhalo, nhalo + ny)
-    eta_s = 1.0 # surface level
-    eta_t = 0.2 # tropopause
-    t_0 = 288.0
-    delta_t = 480000.0
-    lapse_rate = 0.005
+    
     ii = 0
     jj = 0
     kk = 0
@@ -137,14 +142,14 @@ def baroclinic_initialization(qvapor, delp, u, v, pt, eta, eta_v, grid, ptop):
   
    
     pt1 = compute_temperature_component(eta, eta_v, t_mean, grid.agrid2.data, islice, jslice)
-    p1, p2 = lon_lat_midpoint(grid.bgrid1.data[0:-1, :], grid.bgrid1.data[1:, :], grid.bgrid2.data[0:-1, :], grid.bgrid2.data[1:, :], np)
-    pt2 = compute_temperature_component(eta, eta_v, t_mean, p2, islice, jslice)
-    p1, p2 = lon_lat_midpoint(grid.bgrid1.data[1:, 0:-1], grid.bgrid1.data[1:, 1:], grid.bgrid2.data[1:, 0:-1], grid.bgrid2.data[1:, 1:], np)
-    pt3 = compute_temperature_component(eta, eta_v, t_mean, p2, islice, jslice)
-    p1, p2 = lon_lat_midpoint(grid.bgrid1.data[0:-1, 1:], grid.bgrid1.data[1:, 1:], grid.bgrid2.data[0:-1, 1:], grid.bgrid2.data[1:, 1:], np)
-    pt4 = compute_temperature_component(eta, eta_v, t_mean, p2, islice, jslice)
-    p1, p2 = lon_lat_midpoint(grid.bgrid1.data[:, 0:-1], grid.bgrid1.data[:, 1:], grid.bgrid2.data[:, 0:-1], grid.bgrid2.data[:, 1:], np)
-    pt5 = compute_temperature_component(eta, eta_v, t_mean, p2, islice, jslice)
+    p1, p2_ij_i1j = lon_lat_midpoint(grid.bgrid1.data[0:-1, :], grid.bgrid1.data[1:, :], grid.bgrid2.data[0:-1, :], grid.bgrid2.data[1:, :], np)
+    pt2 = compute_temperature_component(eta, eta_v, t_mean, p2_ij_i1j, islice, jslice)
+    p1, p2_i1j_i1j1 = lon_lat_midpoint(grid.bgrid1.data[1:, 0:-1], grid.bgrid1.data[1:, 1:], grid.bgrid2.data[1:, 0:-1], grid.bgrid2.data[1:, 1:], np)
+    pt3 = compute_temperature_component(eta, eta_v, t_mean, p2_i1j_i1j1, islice, jslice)
+    p1, p2_ij1_i1j1 = lon_lat_midpoint(grid.bgrid1.data[0:-1, 1:], grid.bgrid1.data[1:, 1:], grid.bgrid2.data[0:-1, 1:], grid.bgrid2.data[1:, 1:], np)
+    pt4 = compute_temperature_component(eta, eta_v, t_mean, p2_ij1_i1j1, islice, jslice)
+    p1, p2_ij_ij1  = lon_lat_midpoint(grid.bgrid1.data[:, 0:-1], grid.bgrid1.data[:, 1:], grid.bgrid2.data[:, 0:-1], grid.bgrid2.data[:, 1:], np)
+    pt5 = compute_temperature_component(eta, eta_v, t_mean, p2_ij_ij1, islice, jslice)
     pt6 = compute_temperature_component(eta, eta_v, t_mean, grid.bgrid2, islice, jslice)
     pt7 = compute_temperature_component(eta, eta_v, t_mean, grid.bgrid2.data[1:,:], islice, jslice)
     pt8 = compute_temperature_component(eta, eta_v, t_mean, grid.bgrid2.data[1:,1:], islice, jslice)
@@ -158,3 +163,18 @@ def baroclinic_initialization(qvapor, delp, u, v, pt, eta, eta_v, grid, ptop):
     # TODO adjust delz!
     # if not adiabatic:
     pt[islice, jslice, :] = pt[islice, jslice, :]/(1. + constants.ZVIR * qvapor[islice, jslice, :])
+
+
+    # phis
+   
+    pt1 = compute_surface_geopotential_component(grid.agrid2.data, islice, jslice)
+    pt2 = compute_surface_geopotential_component(p2_ij_i1j, islice, jslice)
+    pt3 = compute_surface_geopotential_component(p2_i1j_i1j1, islice, jslice)
+    pt4 = compute_surface_geopotential_component(p2_ij1_i1j1, islice, jslice)
+    pt5 = compute_surface_geopotential_component(p2_ij_ij1, islice, jslice)
+    pt6 = compute_surface_geopotential_component(grid.bgrid2, islice, jslice)
+    pt7 = compute_surface_geopotential_component(grid.bgrid2.data[1:,:], islice, jslice)
+    pt8 = compute_surface_geopotential_component(grid.bgrid2.data[1:,1:], islice, jslice)
+    pt9 = compute_surface_geopotential_component(grid.bgrid2.data[:,1:], islice, jslice)
+    phis[:] = 1.e25
+    phis[islice, jslice] =  0.25 * pt1 + 0.125 * (pt2 + pt3 + pt4 + pt5) + 0.0625 * (pt6 + pt7 + pt8 + pt9)
