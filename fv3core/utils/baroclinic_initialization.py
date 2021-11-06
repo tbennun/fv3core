@@ -43,8 +43,8 @@ def setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, b
         qvapor[cmps, cmps, :-1] = 0.021*np.exp(-(latitude_agrid[cmps, cmps, None] / pcen[1])**4.) * np.exp(-(ptmp/34000.)**2.)
 
 # Equation (2) Jablonowski & Williamson Baroclinic test case Perturbation. DCMIP 2016 
-def zonal_wind(utmp, eta_v, latitude_dgrid, islice, jslice, jslice_grid):
-    utmp[islice, jslice,:] =  u0 * np.cos(eta_v[:])**(3.0/2.0) * np.sin(2.0 * latitude_dgrid[islice,jslice_grid, None])**2.0
+def zonal_wind(utmp, eta_v, latitude_dgrid, islice, islice_grid, jslice, jslice_grid):
+    utmp[islice, jslice,:] =  u0 * np.cos(eta_v[:])**(3.0/2.0) * np.sin(2.0 * latitude_dgrid[islice_grid,jslice_grid, None])**2.0
 
 """
 call mid_pt_sphere(agrid(i-1,j,1:2), agrid(i,j,  1:2), py(1,j)) --> 
@@ -55,26 +55,19 @@ call mid_pt_sphere(agrid(i-1,j,1:2), agrid(i,j,  1:2), py(1,j)) -->
         agrid[nhalo, nhalo-2:-nhalo+2, 1], np
     )
 """
-def wind_component_calc(utmp, eta_v, longitude_dgrid, latitude_dgrid, ee2, islice, jslice, jslice_grid):
-    ii=3
-    jj=3
-    kk=0
+def wind_component_calc(utmp, eta_v, longitude_dgrid, latitude_dgrid, ee, islice, islice_grid, jslice, jslice_grid):
+  
     vv = np.zeros(utmp.shape)
     r = np.zeros((utmp.shape[0], utmp.shape[1]))
-    zonal_wind(utmp, eta_v, latitude_dgrid, islice, jslice, jslice_grid)
-    #print('99999999999gaaaa', islice, jslice,  r[islice, jslice].shape,  great_circle_distance_lon_lat(pcen[1], latitude_dgrid[islice,jslice_grid],  pcen[0], latitude_dgrid[islice,jslice_grid], constants.RADIUS, np).shape)
-    r[islice, jslice] = great_circle_distance_lon_lat(pcen[0], longitude_dgrid[islice,jslice_grid],  pcen[1], latitude_dgrid[islice,jslice_grid], constants.RADIUS, np)
-   
-    # [0]  BAROCLINIC SAMPLE PRE R parts   10105164.047478760       0.34906585039886590       0.69813170079773179        5.6862228671883459      -0.62824771989411210        6371200.0000000000
-    #                                       6998544.04526923 [0.3490658503988659,       0.6981317007977318]        5.686222867188346       -0.6282477198941121         6371200.0
-    #print("radius is so wrong", r[ii,jj], pcen,  longitude_dgrid[ii,jj+1],  latitude_dgrid[ii,jj+1],  constants.RADIUS, r.shape, utmp.shape)
+    zonal_wind(utmp, eta_v, latitude_dgrid, islice, islice_grid, jslice, jslice_grid)
+    r[islice, jslice] = great_circle_distance_lon_lat(pcen[0], longitude_dgrid[islice_grid,jslice_grid],  pcen[1], latitude_dgrid[islice_grid,jslice_grid], constants.RADIUS, np)
     r3d = np.repeat(r[:,:, None], utmp.shape[2], axis=2)
     adjust_bool = (-(r3d/r0)**2.0 > -40.0)
-    #print('PRE baroclinic sample vv', r[ii,jj], utmp[ii,jj,kk], adjust_bool[ii,jj,kk])
-    utmp[islice, jslice,:][adjust_bool[islice, jslice,:]] = utmp[islice, jslice,:][adjust_bool[islice, jslice,:]] + u1 * np.exp(-(r3d[islice, jslice,:][adjust_bool[islice, jslice,:]]/r0)**2.0) 
-    vv[islice, jslice, :] = utmp[islice, jslice, :]*(ee2[islice, jslice_grid, 1]*np.cos(longitude_dgrid[islice, jslice_grid]) - ee2[islice, jslice_grid, 0]*np.sin(longitude_dgrid[islice, jslice_grid]))[:,:,None]
-    #print('baroclinic sample vv', vv[ii,jj,kk], r[ii,jj], utmp[ii,jj,kk], adjust_bool[ii,jj,kk], 'eeeee', ee2[ii,jj,1], ee2[ii,jj,0], 'lon', longitude_dgrid[ii,jj])
+    utmp[islice, jslice,:][adjust_bool[islice, jslice,:]] = utmp[islice, jslice,:][adjust_bool[islice, jslice,:]] + u1 * np.exp(-(r3d[islice, jslice,:][adjust_bool[islice, jslice,:]]/r0)**2.0)
+    vv[islice, jslice, :] = utmp[islice, jslice, :]*(ee[islice_grid, jslice_grid, 1]*np.cos(longitude_dgrid[islice_grid, jslice_grid]) - ee[islice_grid, jslice_grid, 0]*np.sin(longitude_dgrid[islice_grid, jslice_grid]))[:,:,None]
+ 
     return vv
+
 
 #def compute_temperature()
 """
@@ -117,9 +110,9 @@ def baroclinic_initialization(delp, u, v, pt, eta, eta_v, grid, ptop):
     #utmp[islice, jslice,:][adjust_bool] = utmp[islice, jslice,:][adjust_bool] + u1 * np.exp(-(r3d[adjust_bool]/r0)**2.0) 
     #vv1[islice, jslice, :] = utmp[islice, jslice, :]*(grid.ee2.data[islice, jslice_grid, 1]*np.cos(grid.bgrid1.data[islice, jslice_grid]) - grid.ee2.data[islice, jslice_grid, 0]*np.sin(grid.bgrid1.data[islice, jslice_grid]))[:,:,None]
   
-    vv1 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee2.data, islice, jslice, jslice_p1)
+    vv1 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee2.data, islice, islice, jslice, jslice_p1)
  
-    vv3 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee2.data,  islice, jslice, jslice)
+    vv3 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee2.data,  islice, islice, jslice, jslice)
     pa1, pa2 = lon_lat_midpoint(
         grid.bgrid1.data[:, 0:-1], 
         grid.bgrid1.data[:, 1:], 
@@ -127,67 +120,32 @@ def baroclinic_initialization(delp, u, v, pt, eta, eta_v, grid, ptop):
         grid.bgrid2.data[:, 1:],
         np
     )
-    #print('pa', pa1[6,3], pa2[6,3])
   
-    vv2 = wind_component_calc(utmp, eta_v, pa1, pa2, grid.ew2.data[:,:-1,:],islice, jslice, slice(nhalo, -nhalo))
+    vv2 = wind_component_calc(utmp, eta_v, pa1, pa2, grid.ew2.data[:,:-1,:],islice, islice, jslice, slice(nhalo, -nhalo))
    
     v[islice, jslice,:] = 0.25 * (vv1 + 2.0 * vv2 + vv3)[islice, jslice,:]
-    """
-
-[0]  BAROCLINIC SAMPLE vv2   1.8254847867352852E-014   10382616.335223846        29.895464019314691        1.4980357642426241E-014   5.6862228671883459      -0.68385270837775802    
-  -0.35514661284459426       0.52251511566129349  
-  -0.35514661284459426       0.5225151156612935
-  5.6862228671883459 -0.68385270837775802  
-pa 5.686222867188345 -0.683852708377758
-baroclinic sample vv 3.48501641104009e-14 7391621.343616784 29.89546401931469 False eeeee  lon 5.686222867188345
-   vv[islice, jslice, :] = utmp[islice, jslice, :]*(ee2[islice, jslice_grid, 1]*np.cos(longitude_dgrid[islice, jslice_grid]) - ee2[islice, jslice_grid, 0]*np.sin(longitude_dgrid[islice, jslice_grid]))[:,:,None]
-
-      BAROCLINIC SAMPLE vv2   1.8254847867352852E-014   10382616.335223846        29.895464019314691        1.4980357642426241E-014   5.6862228671883459      -0.68385270837775802 
-                              3.48501641104009e-14         7391621.343616784      29.89546401931469         2.327801576395027e-14     5.686222867188345       -0.683852708377758
-[0]  BAROCLINIC SAMPLE PRE vv1   10105164.047478760        28.184825888175713      F
-PRE baroclinic sample vv       6998544.04526923           28.184825888175713      False
-[0]  BAROCLINIC SAMPLE vv1   6.2582885292207707E-015   10105164.047478760        28.184825888175713   2926815.52048365 
-                                                       10116411.976445448
-                             6.258288529220771e-15     6998544.04526923       28.184825888175713 
-    [0]  BAROCLINIC SAMPLE vv1   5.0599487872110027E-015   10919915.125866998        22.787983472597265 
-                                                           10919915.125866998     
-            baroclinic sample vv 5.059948787211003e-15      8291707.009921413         22.787983472597265
-                                  5.059948787211003e-15    9238752.88132445 
-    [0]  BAROCLINIC SAMPLE vv3  -3.0753913669697378E-015   11350822.487028997        27.700662828606703
-                                -3.0753913669697378e-15    8914648.283784742         27.700662828606703   
-                                -3.0753913669697378e-15   
-    [0]  BAROCLINIC SAMPLE vv2  -1.4128312958558706E-015   11136216.880731197        25.451305990215495       -2.1027629286761906E-016
-                                 -2.5299743936055014e-15   8291707.009921413         22.787983472597265
-[0]  BAROCLINIC SAMPLE vv2  -1.4128312958558706E-015   11136216.880731197        25.451305990215495   5.3232542185827052      -0.56418973294785524  
-                            -1.4128312958558706e-15 
-                            -2.825662591711741e-15       8602010.32545767        25.451305990215495   5.323254218582705       -0.5641897329478552                
-pa 5.323254218582705   -0.5128997572253229
-pa 5.3232542185827052  -0.56418973294785524   
- pa 5.323254218582705  -0.5641897329478552 
-
- 
-    """
+   
 
     # u
-    """
+
     islice = slice(nhalo, -nhalo - 1)
     jslice = slice(nhalo, -nhalo)
     islice_p1 = slice(nhalo+1, -nhalo)
-    uu1 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee1.data, islice, jslice, jslice_p1)
+    uu1 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee1.data, islice, islice, jslice, jslice)
     
-    uu3 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee1.data,  islice, jslice, jslice)
+    uu3 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee1.data,  islice, islice_p1, jslice, jslice)
     pa1, pa2 = lon_lat_midpoint(
-        grid.bgrid1.data[:, 0:-1], 
-        grid.bgrid1.data[:, 1:], 
-        grid.bgrid2.data[:, 0:-1], 
-        grid.bgrid2.data[:, 1:],
+        grid.bgrid1.data[0:-1, :], 
+        grid.bgrid1.data[1:, :], 
+        grid.bgrid2.data[0:-1, :], 
+        grid.bgrid2.data[1:, :],
         np
     )
     
-    uu2 = wind_component_calc(utmp, eta_v, pa1, pa2, grid.ew2.data[:,:-1,:],islice, jslice, slice(nhalo, -nhalo))
+    uu2 = wind_component_calc(utmp, eta_v, pa1, pa2, grid.es1.data[:-1, :,:],islice,  slice(nhalo, -nhalo), jslice, jslice)
    
     u[islice, jslice,:] = 0.25 * (uu1 + 2.0 * uu2 + uu3)[islice, jslice,:]
-    """
+    
     # Temperature
     eta_s = 1.0 # surface level
     eta_t = 0.2 # tropopause

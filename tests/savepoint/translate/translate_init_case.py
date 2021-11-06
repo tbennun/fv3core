@@ -154,7 +154,7 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
          
         self.in_vars["parameters"] = ["ptop"]
         self.out_vars = {
-            #"u": grid.y3d_domain_dict(),
+            "u": grid.y3d_domain_dict(),
             "v": grid.x3d_domain_dict(),
             #"uc": grid.x3d_domain_dict(),
             #"vc": grid.y3d_domain_dict(),
@@ -171,7 +171,8 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
         
         }
         self.ignore_near_zero_errors = {}
-        self.ignore_near_zero_errors['v'] = {'near_zero': 1e-13}
+        for var in ['u', 'v']:
+            self.ignore_near_zero_errors[var] = {'near_zero': 1e-13}
 
     def compute(self, inputs):
         self.make_storage_data_input_vars(inputs)

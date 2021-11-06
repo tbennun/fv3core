@@ -260,7 +260,7 @@ class TranslateGrid:
     fpy_index_offset = -1
     composite_grid_vars = ["sin_sg", "cos_sg"]
     edge_var_axis = {"edge_w": 1, "edge_e": 1, "edge_s": 0, "edge_n": 0}
-    ee_vars = ['ee1', 'ee2', 'ew1', 'ew2']
+    ee_vars = ['ee1', 'ee2', 'ew1', 'ew2', 'es1', 'es2']
     # Super (composite) grid
     #     9---4---8
     #     |       |
