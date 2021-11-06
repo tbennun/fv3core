@@ -126,10 +126,17 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
             "eta_v": {"istart":0, "iend":0, "jstart":0, "jend":0},
             "eta": {"istart":0, "iend":0, "jstart":0, "jend":0},
             "qvapor": {},
+            "peln": {
+                "istart": grid.is_,
+                "iend": grid.ie,
+                "jstart": grid.js,
+                "jend": grid.je,
+                "kend": grid.npz,
+                "kaxis": 1,
+            },
             }
         """
-            "delp": {},
-            "qvapor": {},
+          
             "ps": {"kstart": grid.npz, "kend": grid.npz},
             "pe": {
                 "istart": grid.is_ - 1,
@@ -139,17 +146,10 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
                 "kend": grid.npz + 1,
                 "kaxis": 1,
             },
-            "peln": {
-                "istart": grid.is_,
-                "iend": grid.ie,
-                "jstart": grid.js,
-                "jend": grid.je,
-                "kend": grid.npz,
-                "kaxis": 1,
-            },
+           
             "pk": grid.compute_buffer_k_dict(),
             "pkz": grid.compute_dict(),
-            "eta": {"istart":0, "iend":0, "jstart":0, "jend":0},
+
            """
            
          
@@ -161,12 +161,12 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
             #"vc": grid.y3d_domain_dict(),
             #"ua": {},
             #"va": {},
-            #"w": {},
+            "w": {},
             "pt": {},
             #"delp": {},
             #"qvapor": {},
             "phis": {},
-            #"delz": {},
+            "delz": {},
            
             #"ze0": grid.compute_dict(),
         
@@ -183,7 +183,7 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
             if k != 'ptop':
                 inputs[k] = v.data
         full_shape = self.grid.domain_shape_full(add=(1, 1, 1))
-        for variable in ["u", "v", "pt"]:
+        for variable in ["u", "v", "pt", "delz", "w"]:
             inputs[variable] = np.zeros(full_shape)
         for var2d in ["phis"]:
             inputs[var2d] = np.zeros(full_shape[0:2])

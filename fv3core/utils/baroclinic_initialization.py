@@ -75,26 +75,9 @@ def compute_temperature_component(eta, eta_v, t_mean, latitude, islice, jslice):
 def compute_surface_geopotential_component(latitude, islice, jslice):
     u_comp = u0 * (np.cos((eta_s-eta_0)*math.pi/2.0))**(3.0/2.0)
     return  u_comp * (( -2.0*(np.sin(latitude[islice, jslice])**6.0) * (np.cos(latitude[islice, jslice])**2.0 + 1.0/3.0) + 10.0/63.0 ) * u_comp + ((8.0/5.0)*(np.cos(latitude[islice, jslice])**3.0)*(np.sin(latitude[islice, jslice])**2.0 + 2.0/3.0) - math.pi/4.0 )*constants.RADIUS * constants.OMEGA)
-"""
-tobias -- daint
-nvidia florian
-v37 vs for acoustic dace
-microphysics with dace -- florian -- for loops
-simple acoustics branch simple_acoustics.py
-what for fv_dynamics
-remapping -- while loop 
-lagrangian contributions numpy version. 
-regions --tobias. needs correct extents pointwise. analysis not working right. 
-dev 37 not quite right. for-acoustics-gtc gt4py, then add to dace? or wait for v37? 
-serialize data for self standing app. 
-gt4py feature 
-indirect addressing -- eddie
-higher dimensional storages florian
 
-tobias -- halo updates -- dace orchestrated, and consolidating 
-"""
 
-def baroclinic_initialization(qvapor, delp, u, v, pt, phis, eta, eta_v, grid, ptop):
+def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, eta_v, grid, ptop):
     nx, ny, nz = grid.domain_shape_compute()
     shape = (nx, ny, nz)
   
@@ -133,9 +116,6 @@ def baroclinic_initialization(qvapor, delp, u, v, pt, phis, eta, eta_v, grid, pt
     islice = slice(nhalo, nhalo + nx)
     jslice = slice(nhalo, nhalo + ny)
     
-    ii = 0
-    jj = 0
-    kk = 0
     t_mean = t_0 * eta[:] ** (constants.RDGAS * lapse_rate / constants.GRAV)
     t_mean[eta_t > eta] = t_mean[eta_t > eta] + delta_t*(eta_t - eta[eta_t > eta])**5.0
     # A-grid cell center temperature
@@ -160,12 +140,7 @@ def baroclinic_initialization(qvapor, delp, u, v, pt, phis, eta, eta_v, grid, pt
     near_center_adjustment(pt, pt0, grid.agrid1.data, grid.agrid2.data, islice, islice, jslice, jslice)
 
 
-    # TODO adjust delz!
-    # if not adiabatic:
-    pt[islice, jslice, :] = pt[islice, jslice, :]/(1. + constants.ZVIR * qvapor[islice, jslice, :])
-
-
-    # phis
+     # phis
    
     pt1 = compute_surface_geopotential_component(grid.agrid2.data, islice, jslice)
     pt2 = compute_surface_geopotential_component(p2_ij_i1j, islice, jslice)
@@ -178,3 +153,12 @@ def baroclinic_initialization(qvapor, delp, u, v, pt, phis, eta, eta_v, grid, pt
     pt9 = compute_surface_geopotential_component(grid.bgrid2.data[:,1:], islice, jslice)
     phis[:] = 1.e25
     phis[islice, jslice] =  0.25 * pt1 + 0.125 * (pt2 + pt3 + pt4 + pt5) + 0.0625 * (pt6 + pt7 + pt8 + pt9)
+
+    # if not hydrostatic:
+    w[:] = 1e30
+    w[islice, jslice, :] = 0.0
+    delz[:] = 1e+30
+    delz[islice, jslice, 0:-1] = constants.RDGAS/constants.GRAV * pt[islice, jslice, 0:-1]*(peln[islice, jslice, 0:-1]-peln[islice, jslice, 1:])
+    
+    # if not adiabatic:
+    pt[islice, jslice, :] = pt[islice, jslice, :]/(1. + constants.ZVIR * qvapor[islice, jslice, :])
