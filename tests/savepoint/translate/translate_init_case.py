@@ -134,41 +134,16 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
                 "kend": grid.npz,
                 "kaxis": 1,
             },
-            }
-        """
-          
-            "ps": {"kstart": grid.npz, "kend": grid.npz},
-            "pe": {
-                "istart": grid.is_ - 1,
-                "iend": grid.ie + 1,
-                "jstart": grid.js - 1,
-                "jend": grid.je + 1,
-                "kend": grid.npz + 1,
-                "kaxis": 1,
-            },
-           
-            "pk": grid.compute_buffer_k_dict(),
-            "pkz": grid.compute_dict(),
-
-           """
-           
-         
+        }
+                 
         self.in_vars["parameters"] = ["ptop"]
         self.out_vars = {
             "u": grid.y3d_domain_dict(),
             "v": grid.x3d_domain_dict(),
-            #"uc": grid.x3d_domain_dict(),
-            #"vc": grid.y3d_domain_dict(),
-            #"ua": {},
-            #"va": {},
             "w": {},
             "pt": {},
-            #"delp": {},
-            #"qvapor": {},
             "phis": {},
             "delz": {},
-           
-            #"ze0": grid.compute_dict(),
         
         }
         self.ignore_near_zero_errors = {}
@@ -176,6 +151,7 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
             self.ignore_near_zero_errors[var] = {'near_zero': 1e-13}
        
         self.max_error = 1e-13
+        
     def compute(self, inputs):
         self.make_storage_data_input_vars(inputs)
         # testing just numpy arrays for this
