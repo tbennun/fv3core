@@ -125,6 +125,7 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
             "delp": {},
             "eta_v": {"istart":0, "iend":0, "jstart":0, "jend":0},
             "eta": {"istart":0, "iend":0, "jstart":0, "jend":0},
+            "qvapor": {},
             }
         """
             "delp": {},
@@ -161,7 +162,7 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
             #"ua": {},
             #"va": {},
             #"w": {},
-            #"pt": {},
+            "pt": {},
             #"delp": {},
             #"qvapor": {},
             #"phis": {},
