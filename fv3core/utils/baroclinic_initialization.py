@@ -2,6 +2,7 @@ import math
 import numpy as np
 import fv3core.utils.global_constants as constants
 from fv3core.grid import lon_lat_midpoint, great_circle_distance_lon_lat
+import fv3gfs.util as fv3util 
 nhalo = 3
 u0 = 35.0
 pcen = [math.pi / 9.0, 2.0 * math.pi / 9.0]
@@ -20,9 +21,10 @@ r0 = constants.RADIUS / 10.0 # specifically for test case == 13, otherwise r0 = 
 # Equation (1) Jablonowski & Williamson Baroclinic test case Perturbation. DCMIP 2016
 def compute_horizontal_shape(full_array):
     full_nx, full_ny, _ = full_array.shape
-    nx = full_nx - 2* nhalo - 1
+    nx = full_nx - 2*  nhalo - 1
     ny = full_ny - 2 * nhalo - 1
-    return nx, ny 
+    return nx, ny
+
 def compute_eta(eta, eta_v, ak, bk):
     eta[:-1] = 0.5 * ((ak[:-1] + ak[1:])/1.e5 + bk[:-1] + bk[1:])
     eta_v[:-1] = (eta[:-1] - eta_0) * math.pi * 0.5
@@ -32,15 +34,7 @@ def setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, b
     ps[:] = 100000.0
     cmps_x = slice(nhalo,  nhalo + nx)
     cmps_y = slice(nhalo,  nhalo + ny)
-    cmps_xp1 = slice(nhalo,  nhalo + nx + 1)
-    cmps_yp1 = slice(nhalo,  nhalo + ny + 1)
 
-    #large_init = 1e30 
-    #delp[:nhalo, cmps_yp1, :] = large_init
-    #delp[cmps_x, :nhalo,:] = large_init
-    #delp[-nhalo:,cmps_y, :] = large_init
-    #delp[cmps_x,-nhalo:, :] = large_init
-    #delp[:] = 1e30 
     delp[cmps_x, cmps_y, :-1] = ak[None, None, 1:] - ak[None, None, :-1] + ps[cmps_x, cmps_y, None] * (bk[None, None, 1:] - bk[None, None, :-1])
 
     pe[cmps_x, cmps_y, 0] = ptop
@@ -88,7 +82,7 @@ def compute_surface_geopotential_component(latitude, islice, jslice):
     return  u_comp * (( -2.0*(np.sin(latitude[islice, jslice])**6.0) * (np.cos(latitude[islice, jslice])**2.0 + 1.0/3.0) + 10.0/63.0 ) * u_comp + ((8.0/5.0)*(np.cos(latitude[islice, jslice])**3.0)*(np.sin(latitude[islice, jslice])**2.0 + 2.0/3.0) - math.pi/4.0 )*constants.RADIUS * constants.OMEGA)
 
 
-def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, eta_v, grid, ptop):
+def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, eta_v, longitude, latitude, longitude_agrid, latitude_agrid, ee1, ee2, es1, ew2, ptop):
   
     nx, ny = compute_horizontal_shape(delp)
     utmp = np.zeros(u.shape)
@@ -99,10 +93,10 @@ def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, 
     jslice = slice(nhalo, nhalo + ny)
     jslice_p1 = slice(nhalo + 1, nhalo + ny + 1)
           
-    vv1 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee2.data, islice, islice, jslice, jslice_p1)
-    vv3 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee2.data,  islice, islice, jslice, jslice)
-    pa1, pa2 = lon_lat_midpoint(grid.bgrid1.data[:, 0:-1], grid.bgrid1.data[:, 1:], grid.bgrid2.data[:, 0:-1], grid.bgrid2.data[:, 1:], np)
-    vv2 = wind_component_calc(utmp, eta_v, pa1, pa2, grid.ew2.data[:,:-1,:],islice, islice, jslice, slice(nhalo, -nhalo))
+    vv1 = wind_component_calc(utmp, eta_v, longitude, latitude, ee2, islice, islice, jslice, jslice_p1)
+    vv3 = wind_component_calc(utmp, eta_v, longitude, latitude, ee2,  islice, islice, jslice, jslice)
+    pa1, pa2 = lon_lat_midpoint(longitude[:, 0:-1], longitude[:, 1:], latitude[:, 0:-1], latitude[:, 1:], np)
+    vv2 = wind_component_calc(utmp, eta_v, pa1, pa2, ew2[:,:-1,:],islice, islice, jslice, slice(nhalo, -nhalo))
     v[islice, jslice,:] = 0.25 * (vv1 + 2.0 * vv2 + vv3)[islice, jslice,:]
    
 
@@ -111,10 +105,10 @@ def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, 
     jslice = slice(nhalo, nhalo + ny + 1)
     islice_p1 = slice(nhalo + 1, nhalo + nx + 1)
 
-    uu1 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee1.data, islice, islice, jslice, jslice)
-    uu3 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee1.data,  islice, islice_p1, jslice, jslice)
-    pa1, pa2 = lon_lat_midpoint(grid.bgrid1.data[0:-1, :], grid.bgrid1.data[1:, :], grid.bgrid2.data[0:-1, :], grid.bgrid2.data[1:, :], np)
-    uu2 = wind_component_calc(utmp, eta_v, pa1, pa2, grid.es1.data[:-1, :,:],islice,  slice(nhalo, -nhalo), jslice, jslice)
+    uu1 = wind_component_calc(utmp, eta_v, longitude, latitude, ee1, islice, islice, jslice, jslice)
+    uu3 = wind_component_calc(utmp, eta_v, longitude, latitude, ee1,  islice, islice_p1, jslice, jslice)
+    pa1, pa2 = lon_lat_midpoint(longitude[0:-1, :], longitude[1:, :], latitude[0:-1, :], latitude[1:, :], np)
+    uu2 = wind_component_calc(utmp, eta_v, pa1, pa2, es1[:-1, :,:],islice,  slice(nhalo, -nhalo), jslice, jslice)
     u[islice, jslice,:] = 0.25 * (uu1 + 2.0 * uu2 + uu3)[islice, jslice,:]
     
     # Temperature
@@ -126,36 +120,36 @@ def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, 
     # A-grid cell center temperature
   
    
-    pt1 = compute_temperature_component(eta, eta_v, t_mean, grid.agrid2.data, islice, jslice)
-    p1, p2_ij_i1j = lon_lat_midpoint(grid.bgrid1.data[0:-1, :], grid.bgrid1.data[1:, :], grid.bgrid2.data[0:-1, :], grid.bgrid2.data[1:, :], np)
+    pt1 = compute_temperature_component(eta, eta_v, t_mean, latitude_agrid, islice, jslice)
+    p1, p2_ij_i1j = lon_lat_midpoint(longitude[0:-1, :], longitude[1:, :], latitude[0:-1, :], latitude[1:, :], np)
     pt2 = compute_temperature_component(eta, eta_v, t_mean, p2_ij_i1j, islice, jslice)
-    p1, p2_i1j_i1j1 = lon_lat_midpoint(grid.bgrid1.data[1:, 0:-1], grid.bgrid1.data[1:, 1:], grid.bgrid2.data[1:, 0:-1], grid.bgrid2.data[1:, 1:], np)
+    p1, p2_i1j_i1j1 = lon_lat_midpoint(longitude[1:, 0:-1], longitude[1:, 1:], latitude[1:, 0:-1], latitude[1:, 1:], np)
     pt3 = compute_temperature_component(eta, eta_v, t_mean, p2_i1j_i1j1, islice, jslice)
-    p1, p2_ij1_i1j1 = lon_lat_midpoint(grid.bgrid1.data[0:-1, 1:], grid.bgrid1.data[1:, 1:], grid.bgrid2.data[0:-1, 1:], grid.bgrid2.data[1:, 1:], np)
+    p1, p2_ij1_i1j1 = lon_lat_midpoint(longitude[0:-1, 1:], longitude[1:, 1:], latitude[0:-1, 1:], latitude[1:, 1:], np)
     pt4 = compute_temperature_component(eta, eta_v, t_mean, p2_ij1_i1j1, islice, jslice)
-    p1, p2_ij_ij1  = lon_lat_midpoint(grid.bgrid1.data[:, 0:-1], grid.bgrid1.data[:, 1:], grid.bgrid2.data[:, 0:-1], grid.bgrid2.data[:, 1:], np)
+    p1, p2_ij_ij1  = lon_lat_midpoint(longitude[:, 0:-1], longitude[:, 1:], latitude[:, 0:-1], latitude[:, 1:], np)
     pt5 = compute_temperature_component(eta, eta_v, t_mean, p2_ij_ij1, islice, jslice)
-    pt6 = compute_temperature_component(eta, eta_v, t_mean, grid.bgrid2, islice, jslice)
-    pt7 = compute_temperature_component(eta, eta_v, t_mean, grid.bgrid2.data[1:,:], islice, jslice)
-    pt8 = compute_temperature_component(eta, eta_v, t_mean, grid.bgrid2.data[1:,1:], islice, jslice)
-    pt9 = compute_temperature_component(eta, eta_v, t_mean, grid.bgrid2.data[:,1:], islice, jslice)
+    pt6 = compute_temperature_component(eta, eta_v, t_mean, latitude, islice, jslice)
+    pt7 = compute_temperature_component(eta, eta_v, t_mean, latitude[1:,:], islice, jslice)
+    pt8 = compute_temperature_component(eta, eta_v, t_mean, latitude[1:,1:], islice, jslice)
+    pt9 = compute_temperature_component(eta, eta_v, t_mean, latitude[:,1:], islice, jslice)
     pt[:] = 1.0
     pt[islice, jslice, :] =  0.25 * pt1 + 0.125 * (pt2 + pt3 + pt4 + pt5) + 0.0625 * (pt6 + pt7 + pt8 + pt9)
     # WARNING untested
-    near_center_adjustment(pt, pt0, grid.agrid1.data, grid.agrid2.data, islice, islice, jslice, jslice)
+    near_center_adjustment(pt, pt0, longitude_agrid, latitude_agrid, islice, islice, jslice, jslice)
 
 
      # phis
    
-    pt1 = compute_surface_geopotential_component(grid.agrid2.data, islice, jslice)
+    pt1 = compute_surface_geopotential_component(latitude_agrid, islice, jslice)
     pt2 = compute_surface_geopotential_component(p2_ij_i1j, islice, jslice)
     pt3 = compute_surface_geopotential_component(p2_i1j_i1j1, islice, jslice)
     pt4 = compute_surface_geopotential_component(p2_ij1_i1j1, islice, jslice)
     pt5 = compute_surface_geopotential_component(p2_ij_ij1, islice, jslice)
-    pt6 = compute_surface_geopotential_component(grid.bgrid2, islice, jslice)
-    pt7 = compute_surface_geopotential_component(grid.bgrid2.data[1:,:], islice, jslice)
-    pt8 = compute_surface_geopotential_component(grid.bgrid2.data[1:,1:], islice, jslice)
-    pt9 = compute_surface_geopotential_component(grid.bgrid2.data[:,1:], islice, jslice)
+    pt6 = compute_surface_geopotential_component(latitude, islice, jslice)
+    pt7 = compute_surface_geopotential_component(latitude[1:,:], islice, jslice)
+    pt8 = compute_surface_geopotential_component(latitude[1:,1:], islice, jslice)
+    pt9 = compute_surface_geopotential_component(latitude[:,1:], islice, jslice)
     phis[:] = 1.e25
     phis[islice, jslice] =  0.25 * pt1 + 0.125 * (pt2 + pt3 + pt4 + pt5) + 0.0625 * (pt6 + pt7 + pt8 + pt9)
 
@@ -206,21 +200,24 @@ def p_var(delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, ptop, moist_phys, make_
             pkz[islice, jslice, :-1] = np.exp(constants.KAPPA * np.log(constants.RDG * delp[islice, jslice, :-1] * pt[islice, jslice, :-1] * (1. + constants.ZVIR * qvapor[islice, jslice, :-1]) / delz[islice, jslice, :-1]))
         else:
             pkz[islice, jslice, :-1] = np.exp(constants.KAPPA * np.log(constants.RDG * delp[islice, jslice, :-1] * pt[islice, jslice, :-1] / delz[islice, jslice, :-1]))
-def init_case(eta, eta_v, delp, fC, f0, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, u, v, pt, phis, delz, w, grid, adiabatic, hydrostatic, moist_phys):
+            
+def init_case(eta, eta_v, delp, fC, f0, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, u, v, pt, phis, delz, w,  longitude, latitude, longitude_agrid, latitude_agrid, ee1, ee2, es1, ew2, adiabatic, hydrostatic, moist_phys): 
     nx, ny = compute_horizontal_shape(delp)
+    delp[:] = 1e30
     delp[:nhalo, :nhalo] = 0.0
     delp[:nhalo, nhalo + ny:] = 0.0
     delp[nhalo + nx:, :nhalo] = 0.0
     delp[nhalo + nx:,  nhalo + ny:] = 0.0
     alpha = 0.0
-    fC[:, :] = 2. * constants.OMEGA * (-1.*np.cos(grid.bgrid1) * np.cos(grid.bgrid2) * np.sin(alpha) + np.sin(grid.bgrid2) * np.cos(alpha) )	
-    f0[:-1, :-1] = 2. * constants.OMEGA * (-1. * np.cos(grid.agrid1[:-1, :-1]) * np.cos(grid.agrid2[:-1, :-1]) * np.sin(alpha) + np.sin(grid.agrid2[:-1, :-1])*np.cos(alpha) )
+    fC[:, :] = 2. * constants.OMEGA * (-1.*np.cos(longitude) * np.cos(latitude) * np.sin(alpha) + np.sin(latitude) * np.cos(alpha) )	
+    f0[:-1, :-1] = 2. * constants.OMEGA * (-1. * np.cos(longitude_agrid[:-1, :-1]) * np.cos(latitude_agrid[:-1, :-1]) * np.sin(alpha) + np.sin(latitude_agrid[:-1, :-1])*np.cos(alpha) )
     # halo update f0
     # fill_corners(f0, ydir)
     pe[:] = 0.0
     pt[:] = 1.0
-    setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, latitude_agrid=grid.agrid2.data[:-1, :-1], adiabatic=adiabatic)
-    baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, eta_v, grid, ptop)
-    # halo update phis
+    setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, latitude_agrid=latitude_agrid[:-1, :-1], adiabatic=adiabatic)
+    baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, eta_v,  longitude, latitude, longitude_agrid, latitude_agrid, ee1, ee2, es1, ew2, ptop)
     p_var( delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, ptop, moist_phys, make_nh=(not hydrostatic), hydrostatic=hydrostatic)
+  
+    # halo update phis
     # halo update u and v
