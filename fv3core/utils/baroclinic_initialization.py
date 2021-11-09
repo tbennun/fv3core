@@ -13,40 +13,51 @@ eta_t = 0.2 # tropopause
 t_0 = 288.0
 delta_t = 480000.0
 lapse_rate = 0.005
-
+ptop_min = 1e-8
+nhalo = 3
 # RADIUS = 6.3712e6 vs Jabowski paper  6.371229 1e6
 r0 = constants.RADIUS / 10.0 # specifically for test case == 13, otherwise r0 = 1
-# Equation (1) Jablonowski & Williamson Baroclinic test case Perturbation. DCMIP 2016 
+# Equation (1) Jablonowski & Williamson Baroclinic test case Perturbation. DCMIP 2016
+def compute_horizontal_shape(full_array):
+    full_nx, full_ny, _ = full_array.shape
+    nx = full_nx - 2* nhalo - 1
+    ny = full_ny - 2 * nhalo - 1
+    return nx, ny 
 def compute_eta(eta, eta_v, ak, bk):
-    eta[:] = 0.5 * ((ak[:-1] + ak[1:])/1.e5 + bk[:-1] + bk[1:])
-    eta_v[:] = (eta[:] - eta_0) * math.pi * 0.5
+    eta[:-1] = 0.5 * ((ak[:-1] + ak[1:])/1.e5 + bk[:-1] + bk[1:])
+    eta_v[:-1] = (eta[:-1] - eta_0) * math.pi * 0.5
 
-def setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, latitude_agrid, adiabatic):  
+def setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, latitude_agrid, adiabatic):
+    nx, ny = compute_horizontal_shape(delp)
     ps[:] = 100000.0
-    cmps = slice(nhalo, -nhalo)
-    large_init = 1e30 
-    delp[:nhalo,nhalo:-nhalo, :] = large_init
-    delp[nhalo:-nhalo, :nhalo,:] = large_init
-    delp[-nhalo:,nhalo:-nhalo, :] = large_init
-    delp[nhalo:-nhalo,-nhalo:, :] = large_init
-    
-    delp[cmps, cmps, :-1] = ak[None, None, 1:] - ak[None, None, :-1] + ps[cmps, cmps, None] * (bk[None, None, 1:] - bk[None, None, :-1])
+    cmps_x = slice(nhalo,  nhalo + nx)
+    cmps_y = slice(nhalo,  nhalo + ny)
+    cmps_xp1 = slice(nhalo,  nhalo + nx + 1)
+    cmps_yp1 = slice(nhalo,  nhalo + ny + 1)
 
-    pe[cmps, cmps, 0] = ptop
-    peln[cmps, cmps, 0] = math.log(ptop)
-    pk[cmps, cmps, 0] = ptop**constants.KAPPA
+    #large_init = 1e30 
+    #delp[:nhalo, cmps_yp1, :] = large_init
+    #delp[cmps_x, :nhalo,:] = large_init
+    #delp[-nhalo:,cmps_y, :] = large_init
+    #delp[cmps_x,-nhalo:, :] = large_init
+    #delp[:] = 1e30 
+    delp[cmps_x, cmps_y, :-1] = ak[None, None, 1:] - ak[None, None, :-1] + ps[cmps_x, cmps_y, None] * (bk[None, None, 1:] - bk[None, None, :-1])
+
+    pe[cmps_x, cmps_y, 0] = ptop
+    peln[cmps_x, cmps_y, 0] = math.log(ptop)
+    pk[cmps_x, cmps_y, 0] = ptop**constants.KAPPA
     for k in range(1, pe.shape[2]):
-        pe[cmps, cmps, k] = pe[cmps, cmps, k - 1] + delp[cmps, cmps, k - 1]
-    pk[cmps, cmps, 1:] = np.exp(constants.KAPPA * np.log(pe[cmps, cmps, 1:]))
-    peln[cmps, cmps, 1:]  = np.log(pe[cmps, cmps, 1:])
-    pkz[cmps, cmps, :-1] = (pk[cmps, cmps, 1:] - pk[cmps, cmps, :-1]) / (constants.KAPPA * (peln[cmps, cmps, 1:] - peln[cmps, cmps, :-1]))
+        pe[cmps_x, cmps_y, k] = pe[cmps_x, cmps_y, k - 1] + delp[cmps_x, cmps_y, k - 1]
+    pk[cmps_x, cmps_y, 1:] = np.exp(constants.KAPPA * np.log(pe[cmps_x, cmps_y, 1:]))
+    peln[cmps_x, cmps_y, 1:]  = np.log(pe[cmps_x, cmps_y, 1:])
+    pkz[cmps_x, cmps_y, :-1] = (pk[cmps_x, cmps_y, 1:] - pk[cmps_x, cmps_y, :-1]) / (constants.KAPPA * (peln[cmps_x, cmps_y, 1:] - peln[cmps_x, cmps_y, :-1]))
     
     compute_eta(eta, eta_v, ak, bk)
 
     if not adiabatic:
         
-        ptmp = delp[cmps, cmps, :-1]/(peln[cmps, cmps, 1:]-peln[cmps, cmps, :-1]) - 100000.
-        qvapor[cmps, cmps, :-1] = 0.021*np.exp(-(latitude_agrid[cmps, cmps, None] / pcen[1])**4.) * np.exp(-(ptmp/34000.)**2.)
+        ptmp = delp[cmps_x, cmps_y, :-1]/(peln[cmps_x, cmps_y, 1:]-peln[cmps_x, cmps_y, :-1]) - 100000.
+        qvapor[cmps_x, cmps_y, :-1] = 0.021*np.exp(-(latitude_agrid[cmps_x, cmps_y, None] / pcen[1])**4.) * np.exp(-(ptmp/34000.)**2.)
 
 # Equation (2) Jablonowski & Williamson Baroclinic test case Perturbation. DCMIP 2016 
 def zonal_wind(utmp, eta_v, latitude_dgrid, islice, islice_grid, jslice, jslice_grid):
@@ -78,19 +89,16 @@ def compute_surface_geopotential_component(latitude, islice, jslice):
 
 
 def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, eta_v, grid, ptop):
-    nx, ny, nz = grid.domain_shape_compute()
-    shape = (nx, ny, nz)
   
-  
+    nx, ny = compute_horizontal_shape(delp)
     utmp = np.zeros(u.shape)
     vv1 = np.zeros(u.shape)
     # Equation (2) for j+1
 
-    nhalo = 3
-    islice = slice(nhalo, -nhalo)
-    jslice = slice(nhalo, -nhalo - 1)
-    jslice_p1 = slice(nhalo+1, -nhalo)
-       
+    islice = slice(nhalo, nhalo + nx + 1)
+    jslice = slice(nhalo, nhalo + ny)
+    jslice_p1 = slice(nhalo + 1, nhalo + ny + 1)
+          
     vv1 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee2.data, islice, islice, jslice, jslice_p1)
     vv3 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee2.data,  islice, islice, jslice, jslice)
     pa1, pa2 = lon_lat_midpoint(grid.bgrid1.data[:, 0:-1], grid.bgrid1.data[:, 1:], grid.bgrid2.data[:, 0:-1], grid.bgrid2.data[:, 1:], np)
@@ -99,10 +107,10 @@ def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, 
    
 
     # u
+    islice = slice(nhalo, nhalo + nx)
+    jslice = slice(nhalo, nhalo + ny + 1)
+    islice_p1 = slice(nhalo + 1, nhalo + nx + 1)
 
-    islice = slice(nhalo, -nhalo - 1)
-    jslice = slice(nhalo, -nhalo)
-    islice_p1 = slice(nhalo+1, -nhalo)
     uu1 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee1.data, islice, islice, jslice, jslice)
     uu3 = wind_component_calc(utmp, eta_v, grid.bgrid1.data, grid.bgrid2.data, grid.ee1.data,  islice, islice_p1, jslice, jslice)
     pa1, pa2 = lon_lat_midpoint(grid.bgrid1.data[0:-1, :], grid.bgrid1.data[1:, :], grid.bgrid2.data[0:-1, :], grid.bgrid2.data[1:, :], np)
@@ -110,9 +118,6 @@ def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, 
     u[islice, jslice,:] = 0.25 * (uu1 + 2.0 * uu2 + uu3)[islice, jslice,:]
     
     # Temperature
-    full_nx, full_ny = grid.agrid2.data.shape
-    nx = full_nx - 2* nhalo - 1
-    ny = full_ny - 2 * nhalo - 1
     islice = slice(nhalo, nhalo + nx)
     jslice = slice(nhalo, nhalo + ny)
     
@@ -162,3 +167,47 @@ def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, 
     
     # if not adiabatic:
     pt[islice, jslice, :] = pt[islice, jslice, :]/(1. + constants.ZVIR * qvapor[islice, jslice, :])
+
+
+def p_var(delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, moist_phys, make_nh, hydrostatic=False,  adjust_dry_mass=False):
+    """
+    Computes auxiliary pressure variables for a hydrostatic state.
+    The variables are: surfce, interface, layer-mean pressure, exener function
+    Given (ptop, delp) computes (ps, pk, pe, peln, pkz)
+    """
+    assert(not adjust_dry_mass)
+    assert(not hydrostatic)
+
+    ptop = 300.0   
+    pek = ptop ** constants.KAPPA
+    
+    nx, ny = compute_horizontal_shape(delp)
+    islice = slice(nhalo, nhalo + nx)
+    jslice = slice(nhalo, nhalo + ny)
+    pe[islice, jslice, 0] = ptop
+    pk[islice, jslice, 0] = pek
+
+
+    for k in range(1, delp.shape[2]):
+        pe[islice, jslice, k] = pe[islice, jslice, k - 1] + delp[islice, jslice, k - 1]
+    peln[islice, jslice, 1:] = np.log(pe[islice, jslice, 1:])
+    pk[islice, jslice, 1:] = np.exp(constants.KAPPA * peln[islice, jslice, 1:])
+    ps[islice, jslice] = pe[islice, jslice, -1]
+    if ptop < ptop_min:
+        ak1 = (constants.KAPPA + 1.0) / constants.KAPPA
+        peln[islice, jslice, 0] =  peln[islice, jslice, 1] - ak1
+    else:
+         peln[islice, jslice, 0] = np.log(ptop)
+
+    if not hydrostatic:
+        if make_nh:
+            delz[:]= 1.e25
+            delz[islice, jslice, :-1] = constants.RDG * pt[islice, jslice, :-1] * (peln[islice, jslice, 1:] - peln[islice, jslice, :-1])
+        if moist_phys:
+            pkz[islice, jslice, :-1] = np.exp(constants.KAPPA * np.log(constants.RDG * delp[islice, jslice, :-1] * pt[islice, jslice, :-1] * (1. + constants.ZVIR * qvapor[islice, jslice, :-1]) / delz[islice, jslice, :-1]))
+        else:
+            pkz[islice, jslice, :-1] = np.exp(constants.KAPPA * np.log(constants.RDG * delp[islice, jslice, :-1] * pt[islice, jslice, :-1] / delz[islice, jslice, :-1]))
+def init_case(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, u, v, pt, phis, delz, w, grid, adiabatic, hydrostatic, moist_phys):
+    setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, latitude_agrid=grid.agrid2.data[:-1, :-1], adiabatic=adiabatic)
+    baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, eta_v, grid, ptop)
+    p_var(delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, moist_phys, make_nh=(not hydrostatic), hydrostatic=hydrostatic)
