@@ -169,7 +169,7 @@ def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, 
     pt[islice, jslice, :] = pt[islice, jslice, :]/(1. + constants.ZVIR * qvapor[islice, jslice, :])
 
 
-def p_var(delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, moist_phys, make_nh, hydrostatic=False,  adjust_dry_mass=False):
+def p_var(delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, ptop, moist_phys, make_nh, hydrostatic=False,  adjust_dry_mass=False):
     """
     Computes auxiliary pressure variables for a hydrostatic state.
     The variables are: surfce, interface, layer-mean pressure, exener function
@@ -178,7 +178,6 @@ def p_var(delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, moist_phys, make_nh, hy
     assert(not adjust_dry_mass)
     assert(not hydrostatic)
 
-    ptop = 300.0   
     pek = ptop ** constants.KAPPA
     
     nx, ny = compute_horizontal_shape(delp)
@@ -207,14 +206,21 @@ def p_var(delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, moist_phys, make_nh, hy
             pkz[islice, jslice, :-1] = np.exp(constants.KAPPA * np.log(constants.RDG * delp[islice, jslice, :-1] * pt[islice, jslice, :-1] * (1. + constants.ZVIR * qvapor[islice, jslice, :-1]) / delz[islice, jslice, :-1]))
         else:
             pkz[islice, jslice, :-1] = np.exp(constants.KAPPA * np.log(constants.RDG * delp[islice, jslice, :-1] * pt[islice, jslice, :-1] / delz[islice, jslice, :-1]))
-def init_case(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, u, v, pt, phis, delz, w, grid, adiabatic, hydrostatic, moist_phys):
+def init_case(eta, eta_v, delp, fC, f0, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, u, v, pt, phis, delz, w, grid, adiabatic, hydrostatic, moist_phys):
     nx, ny = compute_horizontal_shape(delp)
     delp[:nhalo, :nhalo] = 0.0
     delp[:nhalo, nhalo + ny:] = 0.0
     delp[nhalo + nx:, :nhalo] = 0.0
     delp[nhalo + nx:,  nhalo + ny:] = 0.0
+    alpha = 0.0
+    fC[:, :] = 2. * constants.OMEGA * (-1.*np.cos(grid.bgrid1) * np.cos(grid.bgrid2) * np.sin(alpha) + np.sin(grid.bgrid2) * np.cos(alpha) )	
+    f0[:-1, :-1] = 2. * constants.OMEGA * (-1. * np.cos(grid.agrid1[:-1, :-1]) * np.cos(grid.agrid2[:-1, :-1]) * np.sin(alpha) + np.sin(grid.agrid2[:-1, :-1])*np.cos(alpha) )
+    # halo update f0
+    # fill_corners(f0, ydir)
+    pe[:] = 0.0
+    pt[:] = 1.0
     setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, latitude_agrid=grid.agrid2.data[:-1, :-1], adiabatic=adiabatic)
     baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, eta_v, grid, ptop)
     # halo update phis
-    p_var(delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, moist_phys, make_nh=(not hydrostatic), hydrostatic=hydrostatic)
+    p_var( delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, ptop, moist_phys, make_nh=(not hydrostatic), hydrostatic=hydrostatic)
     # halo update u and v

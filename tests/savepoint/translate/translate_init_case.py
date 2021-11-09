@@ -61,9 +61,8 @@ class TranslateInitCase(TranslateFortranData2Py):
             },
             "pk": grid.compute_buffer_k_dict(),
             "pkz": grid.compute_dict(),
-            #"ze0": grid.compute_dict(),
-            #"fC": {"kstart": grid.npz, "kend": grid.npz},
-            #"f0": {"kstart": grid.npz, "kend": grid.npz},
+            "fC": { "iend": grid.ied + 1, "jend": grid.jed + 1,"kstart": grid.npz, "kend": grid.npz},
+            "f0": {"kstart": grid.npz, "kend": grid.npz},
         }
 
     def compute(self, inputs):
@@ -76,7 +75,7 @@ class TranslateInitCase(TranslateFortranData2Py):
         full_shape = self.grid.domain_shape_full(add=(1, 1, 1))
         for variable in ["qvapor", "pe", "peln", "pk", "pkz", "pt", "delz", "w"]:
             inputs[variable] = np.zeros(full_shape)
-        for var2d in ["ps", "phis"]:
+        for var2d in ["ps", "phis", "fC", "f0"]:
             inputs[var2d] = np.zeros(full_shape[0:2])
         for zvar in ["eta", "eta_v"]:
             inputs[zvar] = np.zeros(self.grid.npz+1)
@@ -212,7 +211,7 @@ class TranslatePVarAuxiliaryPressureVars(TranslateFortranData2Py):
             "pkz": grid.compute_dict(),
         }
                  
-        #self.in_vars["parameters"] = ["ptop"]
+        self.in_vars["parameters"] = ["ptop"]
         self.out_vars = {}
         for var in ["delz", "delp", "ps", "pe", "peln", "pk", "pkz"]:
             self.out_vars[var] =  self.in_vars["data_vars"][var]
@@ -225,6 +224,6 @@ class TranslatePVarAuxiliaryPressureVars(TranslateFortranData2Py):
                 inputs[k] = v.data
     
         namelist = spec.namelist
-        baroclinic_init.p_var(**inputs, grid=self.grid, moist_phys=namelist.moist_phys, make_nh=(not namelist.hydrostatic), hydrostatic=namelist.hydrostatic)
+        baroclinic_init.p_var(**inputs, moist_phys=namelist.moist_phys, make_nh=(not namelist.hydrostatic), hydrostatic=namelist.hydrostatic)
         return self.slice_output(inputs)
 
