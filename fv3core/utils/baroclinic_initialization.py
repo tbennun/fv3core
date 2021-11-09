@@ -208,6 +208,13 @@ def p_var(delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, moist_phys, make_nh, hy
         else:
             pkz[islice, jslice, :-1] = np.exp(constants.KAPPA * np.log(constants.RDG * delp[islice, jslice, :-1] * pt[islice, jslice, :-1] / delz[islice, jslice, :-1]))
 def init_case(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, u, v, pt, phis, delz, w, grid, adiabatic, hydrostatic, moist_phys):
+    nx, ny = compute_horizontal_shape(delp)
+    delp[:nhalo, :nhalo] = 0.0
+    delp[:nhalo, nhalo + ny:] = 0.0
+    delp[nhalo + nx:, :nhalo] = 0.0
+    delp[nhalo + nx:,  nhalo + ny:] = 0.0
     setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, latitude_agrid=grid.agrid2.data[:-1, :-1], adiabatic=adiabatic)
     baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, eta_v, grid, ptop)
+    # halo update phis
     p_var(delp, delz, pt, ps, qvapor, pe, peln, pk, pkz, moist_phys, make_nh=(not hydrostatic), hydrostatic=hydrostatic)
+    # halo update u and v

@@ -1,6 +1,6 @@
 import fv3core._config as spec
 import fv3core.utils.baroclinic_initialization as baroclinic_init
-from fv3core.testing import TranslateFortranData2Py
+from fv3core.testing import TranslateFortranData2Py, ParallelTranslate
 import numpy as np
 import fv3core._config as spec
 class TranslateInitCase(TranslateFortranData2Py):
