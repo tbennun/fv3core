@@ -93,6 +93,7 @@ class TranslateInitCase(TranslateFortranData2Py):
             "es1": self.grid.es1.data,
             "ew2": self.grid.ew2.data
         }
+    
         baroclinic_init.init_case(**inputs, **grid_vars, adiabatic=namelist.adiabatic, hydrostatic=namelist.hydrostatic, moist_phys=namelist.moist_phys)
         return self.slice_output(inputs)
 
@@ -202,7 +203,8 @@ class TranslateJablonowskiBaroclinic(TranslateFortranData2Py):
             "es1": self.grid.es1.data,
             "ew2": self.grid.ew2.data
         }
-        baroclinic_init.baroclinic_initialization(**inputs, **grid_vars)
+        inputs["w"][:] = 1e30
+        baroclinic_init.baroclinic_initialization(**inputs, **grid_vars, adiabatic=spec.namelist.adiabatic,hydrostatic=spec.namelist.hydrostatic)
         return self.slice_output(inputs)
 
 class TranslatePVarAuxiliaryPressureVars(TranslateFortranData2Py):
