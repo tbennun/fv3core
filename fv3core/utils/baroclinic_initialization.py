@@ -19,7 +19,7 @@ lapse_rate = 0.005
 ptop_min = 1e-8
 nhalo = 3
 # RADIUS = 6.3712e6 vs Jabowski paper  6.371229 1e6
-r0 = constants.RADIUS / 10.0 # specifically for test case == 13, otherwise r0 = 1
+R = constants.RADIUS / 10.0 # specifically for test case == 13, otherwise R = 1
 
 
 def horizontal_compute_shape(full_array):
@@ -63,38 +63,54 @@ def setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, b
         qvapor[cmps_x, cmps_y, :-1] = 0.021*np.exp(-(latitude_agrid[cmps_x, cmps_y, None] / pcen[1])**4.) * np.exp(-(ptmp/34000.)**2.)
 
 
-def zonal_wind(utmp, eta_v, latitude_dgrid, slice_3d, grid_slice):
+def zonal_wind(eta_v, latitude):
     """
     Equation (2) Jablonowski & Williamson Baroclinic test case Perturbation. JRMS 2006
+    Returns the zonal wind u
     """
-    utmp[slice_3d] =  u0 * np.cos(eta_v[:])**(3.0/2.0) * np.sin(2.0 * latitude_dgrid[grid_slice][:, :, None])**2.0
+    return u0 * np.cos(eta_v[:])**(3.0/2.0) * np.sin(2.0 * latitude[:, :, None])**2.0
 
 
-def apply_perturbation(utmp, up, longitude, latitude, slice_3d, grid_slice):
+def apply_perturbation(u_component, up, longitude, latitude):
     """
     Apply a Gaussian perturbation to intiate a baroclinic wave in Jablonowski & Williamson 2006
     up is the maximum amplitude of the perturbation
-   
+    modifies u_component to include the perturbation of radius R
     """
-    r = np.zeros((utmp.shape[0], utmp.shape[1], 1))
+    r = np.zeros((u_component.shape[0], u_component.shape[1], 1))
     # Equation (11), distance from perturbation at 20E, 40N
-    r[slice_3d] = great_circle_distance_lon_lat(pcen[0], longitude[grid_slice],  pcen[1], latitude[grid_slice], constants.RADIUS, np)[:, :, None]
-    r3d = np.repeat(r, utmp.shape[2], axis=2)
-    near_perturbation = ((r3d/r0)**2.0 < 40.0)[slice_3d]
-    # Equation(10) perturbation applied to utmp
-    utmp[slice_3d][near_perturbation] = utmp[slice_3d][near_perturbation] + up * np.exp(-(r3d[slice_3d][near_perturbation]/r0)**2.0)
+    r = great_circle_distance_lon_lat(pcen[0], longitude,  pcen[1], latitude, constants.RADIUS, np)[:, :, None]
+    r3d = np.repeat(r, u_component.shape[2], axis=2)
+    near_perturbation = ((r3d/R)**2.0 < 40.0)
+    # Equation(10) perturbation applied to u_component
+    u_component[near_perturbation] = u_component[near_perturbation] + up * np.exp(-(r3d[near_perturbation]/R)**2.0)
+   
 
+def local_coordinate_transformation(u_component, longitude, grid_vector_component):
+    """
+    Transform the zonal wind component to the cubed sphere grid using a grid vector
+    """
+    return u_component * (grid_vector_component[:, :, 1]*np.cos(longitude) - grid_vector_component[:, :, 0]*np.sin(longitude))[:,:,None]
 
-def wind_component_calc(utmp, eta_v, longitude_dgrid, latitude_dgrid, grid_vector_component, islice, islice_grid, jslice, jslice_grid):
-    vv = np.zeros(utmp.shape)
+def wind_component_calc(shape, eta_v, longitude, latitude, grid_vector_component, islice, islice_grid, jslice, jslice_grid):
+    u_component = np.zeros(shape)
     grid_slice = (islice_grid, jslice_grid)
     slice_3d = (islice, jslice, slice(None))
-    zonal_wind(utmp, eta_v, latitude_dgrid, slice_3d, grid_slice)
-    apply_perturbation(utmp, u1, longitude_dgrid, latitude_dgrid, slice_3d, grid_slice)
-    vv[slice_3d] = utmp[slice_3d]*(grid_vector_component[islice_grid, jslice_grid, 1]*np.cos(longitude_dgrid[grid_slice]) - grid_vector_component[islice_grid, jslice_grid, 0]*np.sin(longitude_dgrid[grid_slice]))[:,:,None]
- 
-    return vv
+    u_component[slice_3d] = zonal_wind(eta_v, latitude[grid_slice])
+    apply_perturbation(u_component[slice_3d], u1, longitude[grid_slice], latitude[grid_slice])
+    u_component[slice_3d] = local_coordinate_transformation(u_component[slice_3d], longitude[grid_slice], grid_vector_component[islice_grid, jslice_grid, :])
+    return u_component
 
+def initialize_zonal_wind(u, eta, eta_v, longitude, latitude, east_grid_vector_component, center_grid_vector_component, islice, islice_grid, jslice, jslice_grid, axis):
+    shape = u.shape
+    uu1 = wind_component_calc(shape, eta_v, longitude, latitude,  east_grid_vector_component, islice, islice, jslice, jslice_grid)
+    uu3 = wind_component_calc(shape, eta_v, longitude, latitude,  east_grid_vector_component, islice, islice_grid, jslice, jslice)
+    lower_slice = (slice(None),) * axis + (slice(0, -1),) 
+    upper_slice = (slice(None),) * axis + (slice(1, None),)
+    pa1, pa2 = lon_lat_midpoint(longitude[lower_slice], longitude[upper_slice], latitude[lower_slice], latitude[upper_slice], np)
+    uu2 = wind_component_calc(shape, eta_v, pa1, pa2, center_grid_vector_component,islice, islice, jslice, jslice)
+    u[islice, jslice,:] = 0.25 * (uu1 + 2.0 * uu2 + uu3)[islice, jslice,:]
+    
 def horizontally_averaged_temperature(eta):
     """
     Equations (4) and (5) Jablonowski & Williamson Baroclinic test case Perturbation. JRMS 2006
@@ -105,34 +121,27 @@ def horizontally_averaged_temperature(eta):
     t_mean[eta_t > eta] = t_mean[eta_t > eta] + delta_t*(eta_t - eta[eta_t > eta])**5.0
     return t_mean
 
-def compute_temperature_component(eta, eta_v, t_mean, latitude, grid_slice):
+def compute_temperature_component(eta, eta_v, t_mean, latitude):
     """
     Equation (6) Jablonowski & Williamson Baroclinic test case Perturbation. JRMS 2006
     The total temperature distribution from the horizontal-mean temperature and a horizontal variation at each level
     """
-    return t_mean + 0.75*(eta[:] * math.pi * u0 / constants. RDGAS) * np.sin(eta_v[:])*np.sqrt(np.cos(eta_v[:])) * (( -2.0 * (np.sin(latitude[grid_slice])**6.0) *(np.cos(latitude[grid_slice])**2.0 + 1.0/3.0) + 10.0/63.0 ) *2.0*u0*np.cos(eta_v[:])**(3.0/2.0) + ((8.0/5.0)*(np.cos(latitude[grid_slice])**3.0)*(np.sin(latitude[grid_slice])**2.0 + 2.0/3.0) - math.pi/4.0 ) * constants.RADIUS * constants.OMEGA )
+    lat = latitude[:, :, None]
+    return t_mean + 0.75*(eta[:] * math.pi * u0 / constants. RDGAS) * np.sin(eta_v[:])*np.sqrt(np.cos(eta_v[:])) * (( -2.0 * (np.sin(lat)**6.0) *(np.cos(lat)**2.0 + 1.0/3.0) + 10.0/63.0 ) *2.0*u0*np.cos(eta_v[:])**(3.0/2.0) + ((8.0/5.0)*(np.cos(lat)**3.0)*(np.sin(lat)**2.0 + 2.0/3.0) - math.pi/4.0 ) * constants.RADIUS * constants.OMEGA )
 
 
-def compute_surface_geopotential_component(latitude, grid_slice):
+def compute_surface_geopotential_component(latitude):
     """
     Equation (7) at the surface level. Jablonowski & Williamson Baroclinic test case Perturbation. JRMS 2006
     The surface geopotential distribution
     """
     u_comp = u0 * (np.cos((eta_s-eta_0)*math.pi/2.0))**(3.0/2.0)
-    return  u_comp * (( -2.0*(np.sin(latitude[grid_slice])**6.0) * (np.cos(latitude[grid_slice])**2.0 + 1.0/3.0) + 10.0/63.0 ) * u_comp + ((8.0/5.0)*(np.cos(latitude[grid_slice])**3.0)*(np.sin(latitude[grid_slice])**2.0 + 2.0/3.0) - math.pi/4.0 )*constants.RADIUS * constants.OMEGA)
+    return  u_comp * (( -2.0*(np.sin(latitude)**6.0) * (np.cos(latitude)**2.0 + 1.0/3.0) + 10.0/63.0 ) * u_comp + ((8.0/5.0)*(np.cos(latitude)**3.0)*(np.sin(latitude)**2.0 + 2.0/3.0) - math.pi/4.0 )*constants.RADIUS * constants.OMEGA)
 
 
-def initialize_zonal_wind(u, eta, eta_v, longitude, latitude, east_grid_vector_component, center_grid_vector_component, islice, islice_grid, jslice, jslice_grid, axis):
-    utmp = np.zeros(u.shape)
-    uu1 = wind_component_calc(utmp, eta_v, longitude, latitude,  east_grid_vector_component, islice, islice, jslice, jslice_grid)
-    uu3 = wind_component_calc(utmp, eta_v, longitude, latitude,  east_grid_vector_component, islice, islice_grid, jslice, jslice)
-    lower_slice = (slice(None),) * axis + (slice(0, -1),) 
-    upper_slice = (slice(None),) * axis + (slice(1, None),)
-    pa1, pa2 = lon_lat_midpoint(longitude[lower_slice], longitude[upper_slice], latitude[lower_slice], latitude[upper_slice], np)
-    uu2 = wind_component_calc(utmp, eta_v, pa1, pa2, center_grid_vector_component,islice, islice, jslice, jslice)
-    u[islice, jslice,:] = 0.25 * (uu1 + 2.0 * uu2 + uu3)[islice, jslice,:]
 
-def compute_grid_midpoint_latitude_components(longitude, latitude):
+
+def compute_grid_edge_midpoint_latitude_components(longitude, latitude):
     lon, lat_avg_x_lower = lon_lat_midpoint(longitude[0:-1, :], longitude[1:, :], latitude[0:-1, :], latitude[1:, :], np)
     lon, lat_avg_y_right = lon_lat_midpoint(longitude[1:, 0:-1], longitude[1:, 1:], latitude[1:, 0:-1], latitude[1:, 1:], np)
     lon, lat_avg_x_upper = lon_lat_midpoint(longitude[0:-1, 1:], longitude[1:, 1:], latitude[0:-1, 1:], latitude[1:, 1:], np)
@@ -148,40 +157,28 @@ def cell_average_nine_point(pt1, pt2, pt3, pt4, pt5, pt6, pt7, pt8, pt9):
     """
     return 0.25 * pt1 + 0.125 * (pt2 + pt3 + pt4 + pt5) + 0.0625 * (pt6 + pt7 + pt8 + pt9)
 
-def initialize_temperature(pt, t_mean, eta, eta_v, longitude, latitude, longitude_agrid, latitude_agrid,  lat_avg_x_lower, lat_avg_y_right, lat_avg_x_upper,  lat_avg_y_left ,islice, jslice):
-    grid_slice = (islice, jslice, None)
-    pt1 = compute_temperature_component(eta, eta_v, t_mean, latitude_agrid, grid_slice)
-    pt2 = compute_temperature_component(eta, eta_v, t_mean, lat_avg_x_lower, grid_slice)
-    pt3 = compute_temperature_component(eta, eta_v, t_mean, lat_avg_y_right, grid_slice)
-    pt4 = compute_temperature_component(eta, eta_v, t_mean, lat_avg_x_upper, grid_slice)
-    pt5 = compute_temperature_component(eta, eta_v, t_mean, lat_avg_y_left, grid_slice)
-    pt6 = compute_temperature_component(eta, eta_v, t_mean, latitude, grid_slice)
-    pt7 = compute_temperature_component(eta, eta_v, t_mean, latitude[1:,:], grid_slice)
-    pt8 = compute_temperature_component(eta, eta_v, t_mean, latitude[1:,1:], grid_slice)
-    pt9 = compute_temperature_component(eta, eta_v, t_mean, latitude[:,1:], grid_slice)
-    pt[:] = 1.0
-    pt[islice, jslice, :] =  cell_average_nine_point(pt1, pt2, pt3, pt4, pt5, pt6, pt7, pt8, pt9)
-    # TODO: seems to not get applied/not tested?
-    apply_perturbation(pt, pt0, longitude_agrid, latitude_agrid, (islice, jslice, slice(None)), (islice, jslice))
+def cell_average_nine_components(component_function, component_args, latitude, latitude_agrid, lat2, lat3, lat4, lat5, grid_slice):
+    """
+    Componet 9 cell components of a variable, calling a component_function definiting the equation with component_args
+    (arguments unique to that component_function), and precomputed latitude arrays 
+    """
+    pt1 = component_function(*component_args, latitude=latitude_agrid[grid_slice])
+    pt2 = component_function(*component_args, latitude=lat2[grid_slice])
+    pt3 = component_function(*component_args, latitude=lat3[grid_slice])
+    pt4 = component_function(*component_args, latitude=lat4[grid_slice])
+    pt5 = component_function(*component_args, latitude=lat5[grid_slice])
+    pt6 = component_function(*component_args, latitude=latitude[grid_slice])
+    pt7 = component_function(*component_args, latitude=latitude[1:,:][grid_slice])
+    pt8 = component_function(*component_args, latitude=latitude[1:,1:][grid_slice])
+    pt9 = component_function(*component_args, latitude=latitude[:,1:][grid_slice])
+    return cell_average_nine_point(pt1, pt2, pt3, pt4, pt5, pt6, pt7, pt8, pt9)
 
-def initialize_surface_geopotential(phis, latitude,  latitude_agrid, lat_avg_x_lower, lat_avg_y_right, lat_avg_x_upper,  lat_avg_y_left, grid_slice):
-    pt1 = compute_surface_geopotential_component(latitude_agrid, grid_slice)
-    pt2 = compute_surface_geopotential_component(lat_avg_x_lower, grid_slice)
-    pt3 = compute_surface_geopotential_component(lat_avg_y_right, grid_slice)
-    pt4 = compute_surface_geopotential_component(lat_avg_x_upper, grid_slice)
-    pt5 = compute_surface_geopotential_component(lat_avg_y_left, grid_slice)
-    pt6 = compute_surface_geopotential_component(latitude, grid_slice)
-    pt7 = compute_surface_geopotential_component(latitude[1:,:], grid_slice)
-    pt8 = compute_surface_geopotential_component(latitude[1:,1:], grid_slice)
-    pt9 = compute_surface_geopotential_component(latitude[:,1:], grid_slice)
-    phis[:] = 1.e25
-    phis[grid_slice] = cell_average_nine_point(pt1, pt2, pt3, pt4, pt5, pt6, pt7, pt8, pt9)
 
 def initialize_nonhydrostatic_delz(delz, pt, peln, islice, jslice):
     """
     For the FV3 model, geopotential is computed each timestep but is not part of the intial state
     Here we compute nonhydrostatic delz describing the thickness of each vertical layer
-    Thus equaions 8 and 9 and 7 above the surface in Jablonowski & Williamson Baroclinic
+    Thus equations 8 and 9 and 7 above the surface in Jablonowski & Williamson Baroclinic
     are not computed.
     Here delz 
     """
@@ -192,6 +189,9 @@ def initialize_nonhydrostatic_delz(delz, pt, peln, islice, jslice):
 
 
 def nonadiabatic_moisture_adjusted_temperature(pt, qvapor, slice_3d):
+    """
+    Update initial temperature to include water vapor contribution
+    """
     pt[slice_3d] = pt[slice_3d]/(1. + constants.ZVIR * qvapor[slice_3d])
     
 def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, eta_v, longitude, latitude, longitude_agrid, latitude_agrid, ee1, ee2, es1, ew2, ptop, adiabatic, hydrostatic):
@@ -225,14 +225,19 @@ def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, 
     grid_slice = slice_3d[0:2]
     # We don't compute Equation 3, relative vorticity as the model is not in vorticity-divergence form
 
-    t_mean = horizontally_averaged_temperature(eta)
-    
-    lat_avg_x_lower, lat_avg_y_right, lat_avg_x_upper, lat_avg_y_left =  compute_grid_midpoint_latitude_components(longitude, latitude)
    
-    initialize_temperature(pt, t_mean, eta, eta_v, longitude, latitude, longitude_agrid, latitude_agrid,  lat_avg_x_lower, lat_avg_y_right, lat_avg_x_upper,  lat_avg_y_left ,islice, jslice)
-     
-    initialize_surface_geopotential(phis, latitude,  latitude_agrid, lat_avg_x_lower, lat_avg_y_right, lat_avg_x_upper,  lat_avg_y_left, grid_slice)
+    # Compute cell latitudes in the midpoint of each cell edge
+    lat2, lat3, lat4, lat5 =  compute_grid_edge_midpoint_latitude_components(longitude, latitude)
+   
+    # initialize temperature
+    pt[:] = 1.0
+    t_mean = horizontally_averaged_temperature(eta)
+    pt[slice_3d] = cell_average_nine_components(compute_temperature_component, [eta, eta_v, t_mean], latitude, latitude_agrid, lat2, lat3, lat4, lat5, grid_slice)
 
+    # initialize surface seopotential
+    phis[:] =  1.e25
+    phis[grid_slice] = cell_average_nine_components(compute_surface_geopotential_component, [], latitude, latitude_agrid, lat2, lat3, lat4, lat5, grid_slice)
+    
     if not hydrostatic:
         w[:] = 1.e30
         # vertical velocity is set to 0 for nonhydrostatic setups
