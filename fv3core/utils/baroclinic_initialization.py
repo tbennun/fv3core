@@ -2,25 +2,11 @@ import math
 import numpy as np
 import fv3core.utils.global_constants as constants
 from fv3core.grid import lon_lat_midpoint, great_circle_distance_lon_lat
-import fv3gfs.util as fv3util 
-nhalo = 3
-# maximum amplitude - close to wind speed of zonal-mean time-mean jet stream in troposphere
-u0 = 35.0
-# indicates perturbation location 20E, 40N
-pcen = [math.pi / 9.0, 2.0 * math.pi / 9.0]
-u1 = 1.0
-pt0 = 0.0
-eta_0 = 0.252
-eta_s = 1.0 # surface level
-eta_t = 0.2 # tropopause
-t_0 = 288.0
-delta_t = 480000.0
-lapse_rate = 0.005
+import fv3gfs.util as fv3util
+import fv3core.utils.baroclinic_initialization_jablonowski_williamson as jablonowski_init
+nhalo = fv3util.N_HALO_DEFAULT
 ptop_min = 1e-8
-nhalo = 3
-# RADIUS = 6.3712e6 vs Jabowski paper  6.371229 1e6
-R = constants.RADIUS / 10.0 # specifically for test case == 13, otherwise R = 1
-
+pcen = [math.pi / 9.0, 2.0 * math.pi / 9.0]
 
 def horizontal_compute_shape(full_array):
     full_nx, full_ny, _ = full_array.shape
@@ -29,13 +15,6 @@ def horizontal_compute_shape(full_array):
     return nx, ny
 
 
-def compute_eta(eta, eta_v, ak, bk):
-    """
-    Equation (1) Jablonowski & Williamson Baroclinic test case Perturbation. JRMS 2006
-    eta is the vertical coordinate and eta_v is an auxiliary vertical coordinate
-    """
-    eta[:-1] = 0.5 * ((ak[:-1] + ak[1:])/1.e5 + bk[:-1] + bk[1:])
-    eta_v[:-1] = (eta[:-1] - eta_0) * math.pi * 0.5
 
     
 def setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, bk, ptop, latitude_agrid, adiabatic):
@@ -55,36 +34,14 @@ def setup_pressure_fields(eta, eta_v, delp, ps, pe, peln, pk, pkz, qvapor, ak, b
     peln[cmps_x, cmps_y, 1:]  = np.log(pe[cmps_x, cmps_y, 1:])
     pkz[cmps_x, cmps_y, :-1] = (pk[cmps_x, cmps_y, 1:] - pk[cmps_x, cmps_y, :-1]) / (constants.KAPPA * (peln[cmps_x, cmps_y, 1:] - peln[cmps_x, cmps_y, :-1]))
     
-    compute_eta(eta, eta_v, ak, bk)
+    jablonowski_init.compute_eta(eta, eta_v, ak, bk)
 
     if not adiabatic:
         
         ptmp = delp[cmps_x, cmps_y, :-1]/(peln[cmps_x, cmps_y, 1:]-peln[cmps_x, cmps_y, :-1]) - 100000.
         qvapor[cmps_x, cmps_y, :-1] = 0.021*np.exp(-(latitude_agrid[cmps_x, cmps_y, None] / pcen[1])**4.) * np.exp(-(ptmp/34000.)**2.)
 
-
-def zonal_wind(eta_v, latitude):
-    """
-    Equation (2) Jablonowski & Williamson Baroclinic test case Perturbation. JRMS 2006
-    Returns the zonal wind u
-    """
-    return u0 * np.cos(eta_v[:])**(3.0/2.0) * np.sin(2.0 * latitude[:, :, None])**2.0
-
-
-def apply_perturbation(u_component, up, longitude, latitude):
-    """
-    Apply a Gaussian perturbation to intiate a baroclinic wave in Jablonowski & Williamson 2006
-    up is the maximum amplitude of the perturbation
-    modifies u_component to include the perturbation of radius R
-    """
-    r = np.zeros((u_component.shape[0], u_component.shape[1], 1))
-    # Equation (11), distance from perturbation at 20E, 40N
-    r = great_circle_distance_lon_lat(pcen[0], longitude,  pcen[1], latitude, constants.RADIUS, np)[:, :, None]
-    r3d = np.repeat(r, u_component.shape[2], axis=2)
-    near_perturbation = ((r3d/R)**2.0 < 40.0)
-    # Equation(10) perturbation applied to u_component
-    u_component[near_perturbation] = u_component[near_perturbation] + up * np.exp(-(r3d[near_perturbation]/R)**2.0)
-   
+  
 
 def local_coordinate_transformation(u_component, longitude, grid_vector_component):
     """
@@ -95,9 +52,8 @@ def local_coordinate_transformation(u_component, longitude, grid_vector_componen
 def wind_component_calc(shape, eta_v, longitude, latitude, grid_vector_component, islice, islice_grid, jslice, jslice_grid):
     u_component = np.zeros(shape)
     grid_slice = (islice_grid, jslice_grid)
-    slice_3d = (islice, jslice, slice(None))
-    u_component[slice_3d] = zonal_wind(eta_v, latitude[grid_slice])
-    apply_perturbation(u_component[slice_3d], u1, longitude[grid_slice], latitude[grid_slice])
+    slice_3d = (islice, jslice, slice(None))    
+    u_component[slice_3d] = jablonowski_init.baroclinic_perturbed_zonal_wind(eta_v, longitude[grid_slice], latitude[grid_slice])
     u_component[slice_3d] = local_coordinate_transformation(u_component[slice_3d], longitude[grid_slice], grid_vector_component[islice_grid, jslice_grid, :])
     return u_component
 
@@ -110,34 +66,6 @@ def initialize_zonal_wind(u, eta, eta_v, longitude, latitude, east_grid_vector_c
     pa1, pa2 = lon_lat_midpoint(longitude[lower_slice], longitude[upper_slice], latitude[lower_slice], latitude[upper_slice], np)
     uu2 = wind_component_calc(shape, eta_v, pa1, pa2, center_grid_vector_component,islice, islice, jslice, jslice)
     u[islice, jslice,:] = 0.25 * (uu1 + 2.0 * uu2 + uu3)[islice, jslice,:]
-    
-def horizontally_averaged_temperature(eta):
-    """
-    Equations (4) and (5) Jablonowski & Williamson Baroclinic test case Perturbation. JRMS 2006
-    """
-    # for troposphere:
-    t_mean = t_0 * eta[:] ** (constants.RDGAS * lapse_rate / constants.GRAV)
-    # above troposphere
-    t_mean[eta_t > eta] = t_mean[eta_t > eta] + delta_t*(eta_t - eta[eta_t > eta])**5.0
-    return t_mean
-
-def compute_temperature_component(eta, eta_v, t_mean, latitude):
-    """
-    Equation (6) Jablonowski & Williamson Baroclinic test case Perturbation. JRMS 2006
-    The total temperature distribution from the horizontal-mean temperature and a horizontal variation at each level
-    """
-    lat = latitude[:, :, None]
-    return t_mean + 0.75*(eta[:] * math.pi * u0 / constants. RDGAS) * np.sin(eta_v[:])*np.sqrt(np.cos(eta_v[:])) * (( -2.0 * (np.sin(lat)**6.0) *(np.cos(lat)**2.0 + 1.0/3.0) + 10.0/63.0 ) *2.0*u0*np.cos(eta_v[:])**(3.0/2.0) + ((8.0/5.0)*(np.cos(lat)**3.0)*(np.sin(lat)**2.0 + 2.0/3.0) - math.pi/4.0 ) * constants.RADIUS * constants.OMEGA )
-
-
-def compute_surface_geopotential_component(latitude):
-    """
-    Equation (7) at the surface level. Jablonowski & Williamson Baroclinic test case Perturbation. JRMS 2006
-    The surface geopotential distribution
-    """
-    u_comp = u0 * (np.cos((eta_s-eta_0)*math.pi/2.0))**(3.0/2.0)
-    return  u_comp * (( -2.0*(np.sin(latitude)**6.0) * (np.cos(latitude)**2.0 + 1.0/3.0) + 10.0/63.0 ) * u_comp + ((8.0/5.0)*(np.cos(latitude)**3.0)*(np.sin(latitude)**2.0 + 2.0/3.0) - math.pi/4.0 )*constants.RADIUS * constants.OMEGA)
-
 
 
 
@@ -223,20 +151,18 @@ def baroclinic_initialization(peln, qvapor, delp, u, v, pt, phis, delz, w, eta, 
     jslice = slice(nhalo, nhalo + ny)
     slice_3d = (islice, jslice, slice(None))
     grid_slice = slice_3d[0:2]
-    # We don't compute Equation 3, relative vorticity as the model is not in vorticity-divergence form
-
    
     # Compute cell latitudes in the midpoint of each cell edge
     lat2, lat3, lat4, lat5 =  compute_grid_edge_midpoint_latitude_components(longitude, latitude)
    
     # initialize temperature
     pt[:] = 1.0
-    t_mean = horizontally_averaged_temperature(eta)
-    pt[slice_3d] = cell_average_nine_components(compute_temperature_component, [eta, eta_v, t_mean], latitude, latitude_agrid, lat2, lat3, lat4, lat5, grid_slice)
+    t_mean = jablonowski_init.horizontally_averaged_temperature(eta)
+    pt[slice_3d] = cell_average_nine_components(jablonowski_init.temperature, [eta, eta_v, t_mean], latitude, latitude_agrid, lat2, lat3, lat4, lat5, grid_slice)
 
-    # initialize surface seopotential
+    # initialize surface geopotential
     phis[:] =  1.e25
-    phis[grid_slice] = cell_average_nine_components(compute_surface_geopotential_component, [], latitude, latitude_agrid, lat2, lat3, lat4, lat5, grid_slice)
+    phis[grid_slice] = cell_average_nine_components(jablonowski_init.surface_geopotential_perturbation, [], latitude, latitude_agrid, lat2, lat3, lat4, lat5, grid_slice)
     
     if not hydrostatic:
         w[:] = 1.e30
