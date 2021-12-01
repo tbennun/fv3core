@@ -269,6 +269,7 @@ def make_storage_from_shape_uncached(
     dtype: DTypes = np.float64,
     init: bool = False,
     mask: Optional[Tuple[bool, bool, bool]] = None,
+    is_temporary: bool = False,
 ) -> Field:
     """Create a new gt4py storage of a given shape. Do not memoize outputs.
 
@@ -305,6 +306,8 @@ def make_storage_from_shape_uncached(
         mask=mask,
         managed_memory=managed_memory,
     )
+    if is_temporary:
+        storage._istransient = True
     return storage
 
 
@@ -319,6 +322,7 @@ def make_storage_from_shape(
     init: bool = False,
     mask: Optional[Tuple[bool, bool, bool]] = None,
     cache_key: Optional[Hashable] = None,
+    is_temporary: bool = False,
 ) -> Field:
     """Create a new gt4py storage of a given shape. Outputs are memoized
        using a provided cache_key
@@ -347,12 +351,12 @@ def make_storage_from_shape(
     # the line.
     if cache_key is None:
         return make_storage_from_shape_uncached(
-            shape, origin, dtype=dtype, init=init, mask=mask
+            shape, origin, dtype=dtype, init=init, mask=mask, is_temporary=is_temporary
         )
     full_key = (shape, origin, cache_key, dtype, init, mask)
     if full_key not in storage_shape_outputs:
         storage_shape_outputs[full_key] = make_storage_from_shape_uncached(
-            shape, origin, dtype=dtype, init=init, mask=mask
+            shape, origin, dtype=dtype, init=init, mask=mask, is_temporary=is_temporary
         )
     return_value = storage_shape_outputs[full_key]
     if init:
@@ -383,6 +387,7 @@ def make_storage_dict(
     dummy: Optional[Tuple[int, int, int]] = None,
     names: Optional[List[str]] = None,
     axis: int = 2,
+    is_temporary=False,
 ) -> Dict[str, "Field"]:
     assert names is not None, "for 4d variable storages, specify a list of names"
     if shape is None:
@@ -396,6 +401,7 @@ def make_storage_dict(
             start=start,
             dummy=dummy,
             axis=axis,
+            is_temporary=is_temporary,
         )
     return data_dict
 

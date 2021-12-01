@@ -86,13 +86,12 @@ def call_sdfg(daceprog: DaceProgram, sdfg: dace.SDFG, args, kwargs, sdfg_final=F
                 del sdfg_kwargs[k]
         # TODO: This should no longer be required
         # after dace merged the nested-transients branch
-        for k in daceprog.closure_array_keys:
-            if k in sdfg_kwargs:
-                del sdfg_kwargs[k]
-        for k in daceprog.closure_constant_keys:
-            if k in sdfg_kwargs:
+        for k, tup in daceprog.resolver.closure_arrays.items():
+            if k in sdfg_kwargs and tup[1].transient:
                 del sdfg_kwargs[k]
         sdfg_kwargs = {k: v for k, v in sdfg_kwargs.items() if v is not None}
+        ##### do we need to do scrit transformation here?
+        ##
         res = sdfg(**sdfg_kwargs)
     else:
         res = daceprog(*args, **kwargs)

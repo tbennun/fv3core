@@ -76,13 +76,13 @@ class RiemannSolverC:
         domain = grid.domain_shape_compute(add=(2, 2, 1))
         shape = grid.domain_shape_full(add=(1, 1, 1))
 
-        self._dm = utils.make_storage_from_shape(shape, origin)
-        self._w = utils.make_storage_from_shape(shape, origin)
-        self._pem = utils.make_storage_from_shape(shape, origin)
-        self._pe = utils.make_storage_from_shape(shape, origin)
-        self._gm = utils.make_storage_from_shape(shape, origin)
-        self._dz = utils.make_storage_from_shape(shape, origin)
-        self._pm = utils.make_storage_from_shape(shape, origin)
+        self._dm = utils.make_storage_from_shape(shape, origin, is_temporary=True)
+        self._w = utils.make_storage_from_shape(shape, origin, is_temporary=True)
+        self._pem = utils.make_storage_from_shape(shape, origin, is_temporary=True)
+        self._pe = utils.make_storage_from_shape(shape, origin, is_temporary=True)
+        self._gm = utils.make_storage_from_shape(shape, origin, is_temporary=True)
+        self._dz = utils.make_storage_from_shape(shape, origin, is_temporary=True)
+        self._pm = utils.make_storage_from_shape(shape, origin, is_temporary=True)
 
         self._precompute_stencil = FrozenStencil(
             precompute,

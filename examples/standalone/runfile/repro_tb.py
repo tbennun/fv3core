@@ -1,21 +1,24 @@
 import gt4py
 import numpy as np
-from gt4py import gtscript
-from gt4py.gtscript import PARALLEL, Field, computation, interval, stencil
+from gt4py.gtscript import PARALLEL, Field, computation, interval
 
-from fv3core.decorators import FrozenStencil, computepath_function, computepath_method
+from fv3core.decorators import FrozenStencil, computepath_method
 
 
 backend = "gtc:numpy"
 
 
 def test_stencil(
-    input_field: Field[np.float64], mid_field: Field[np.float64], output_field: Field[np.float64]
+    input_field: Field[np.float64],
+    mid_field: Field[np.float64],
+    output_field: Field[np.float64],
 ):
+
     with computation(PARALLEL), interval(...):
         mid_field = input_field
         mid_field += 1
-        output_field = mid_field
+        tmpvar = input_field
+        output_field = mid_field + tmpvar[1, 0, 0]
 
 
 class dummy_stencil_class:
