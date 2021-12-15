@@ -26,6 +26,7 @@ from fv3core.utils.future_stencil import future_stencil
 from fv3core.utils.mpi import MPI
 from fv3core.utils.typing import Index3D, cast_to_index3d
 from fv3gfs.util.halo_data_transformer import QuantityHaloSpec
+from gtc.passes.oir_pipeline import DefaultPipeline, OirPipeline
 
 from .gt4py_utils import make_storage_from_shape
 
@@ -170,6 +171,11 @@ class FrozenStencil:
         if skip_passes and self.stencil_config.is_gtc_backend:
             stencil_kwargs["skip_passes"] = skip_passes
 
+        if "skip_passes" in stencil_kwargs:
+            stencil_kwargs["oir_pipeline"] = FrozenStencil._get_oir_pipeline(
+                stencil_kwargs.pop("skip_passes")
+            )
+
         self.stencil_object: gt4py.StencilObject = stencil_function(
             definition=func,
             externals=externals,
@@ -224,6 +230,12 @@ class FrozenStencil:
         if self.stencil_config.is_gpu_backend:
             for write_field in self._written_fields:
                 fields[write_field]._set_device_modified()
+
+    @classmethod
+    def _get_oir_pipeline(cls, skip_passes: Sequence[str]) -> OirPipeline:
+        step_map = {step.__name__: step for step in DefaultPipeline.all_steps()}
+        skip_steps = [step_map[pass_name] for pass_name in skip_passes]
+        return DefaultPipeline(skip=skip_steps)
 
     @classmethod
     def _compute_field_origins(
