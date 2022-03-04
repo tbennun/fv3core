@@ -78,8 +78,15 @@ def call_sdfg(daceprog: DaceProgram, sdfg: dace.SDFG, args, kwargs, sdfg_final=F
         # Here we insert optimization passes that don't exists in Simplify yet
         refine_permute_arrays(sdfg)
 
-        # Call
-        res = sdfg(**sdfg_kwargs)
+        sdfg.save(f'aha-{os.getpid()}.sdfg')
+        exit()
+
+        from dace.optimization.cutout_tuner import CutoutTuner
+        tuner = CutoutTuner(sdfg)
+        sdfg.clear_data_reports()
+        res = tuner.dry_run(**sdfg_kwargs)
+
+        # res = sdfg(**sdfg_kwargs)
     else:
         res = daceprog(*args, **kwargs)
     for arg in list(args) + list(kwargs.values()):
