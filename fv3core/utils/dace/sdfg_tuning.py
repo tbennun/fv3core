@@ -61,8 +61,9 @@ import os
 from dace import SDFG, SDFGState, dtypes
 from dace.optimization import cutout_tuner
 from dace.transformation import helpers as xfh
+from dace.transformation.dataflow import MapCollapse
 from dace.sdfg.analysis import cutout as cutter
-from typing import Dict, Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Tuple
 try:
     from tqdm import tqdm
 except (ImportError, ModuleNotFoundError):
@@ -80,19 +81,25 @@ class StencilTuner(cutout_tuner.CutoutTuner):
         measurement: dtypes.InstrumentationType = dtypes.InstrumentationType.
         Timer,
     ) -> None:
-        super().__init__(sdfg=sdfg)
+        super().__init__(sdfg=sdfg, task='stencil')
         self.instrument = measurement
 
     def cutouts(self) -> Iterator[Tuple[SDFGState, StencilComputation]]:
         for node, state in self._sdfg.all_nodes_recursive():
             if isinstance(node, StencilComputation):
-                yield state, node
+                node_id = state.node_id(node)
+                state_id = self._sdfg.node_id(state)
+                yield (state_id, node_id), (state, node)
 
     def space(self,
               node: StencilComputation) -> Iterator[ExpansionSpecification]:
+        #yield node._expansion_specification
+        #return
         MAX_TOTAL_TILE_SIZE = 4096
         #TILE_SIZES = (1, 8, 16, 32, 64)
-        TILE_SIZES = (1, 8)
+        TILE_SIZES = (1, 8, 16, 64)
+        #TILE_SIZES = (0,)
+        SEQUENTIAL_OPTS = (False,)  # True)
         
         for order in node.valid_expansion_orders():
             # No I/J loops or tiled K loop
@@ -115,7 +122,7 @@ class StencilTuner(cutout_tuner.CutoutTuner):
             # * OpenMP/Sequential maps
             #     * If OpenMP: whether to collapse or not
             # * Tile sizes (if exist in order): [4,] 8, 16, 32, 64[, 128] (also product does not exceed max tile size)
-            options = [(False, True), TILE_SIZES, TILE_SIZES, TILE_SIZES]
+            options = [SEQUENTIAL_OPTS, TILE_SIZES, TILE_SIZES, TILE_SIZES]
             for sequential, tile_i, tile_j, tile_k in itertools.product(*options):
                 # Check validity of tiles
                 if tile_i > 1 and 'TileI' not in order:
@@ -128,77 +135,75 @@ class StencilTuner(cutout_tuner.CutoutTuner):
                     continue
 
                 obj = make_expansion_order(node, order)
+                collapse = 0
 
                 # Set tiles
-                tile_sizes = {dcir.Axis.I: tile_i, dcir.Axis.J: tile_j, dcir.Axis.K: tile_k}
-                for expansion_item in obj:
-                    if isinstance(expansion_item, Map):
-                        for it in expansion_item.iterations:
-                            if it.kind == 'tiling':
-                                it.stride = tile_sizes[it.axis]
+                if tile_i != 0:
+                    tile_sizes = {dcir.Axis.I: tile_i, dcir.Axis.J: tile_j, dcir.Axis.K: tile_k}
+                    for expansion_item in obj:
+                        if isinstance(expansion_item, Map):
+                            for it in expansion_item.iterations:
+                                if it.kind == 'tiling':
+                                    it.stride = tile_sizes[it.axis]
 
                 # Set sequential / parallel maps
                 if sequential:
                     for expansion_item in obj:
                         if isinstance(expansion_item, Map):
                             expansion_item.schedule = dtypes.ScheduleType.Sequential
+                    yield obj, collapse
                 else:
                     # TODO: Collapse
-                    pass
+                    yield obj, 0
+                    yield obj, 1
                         
-                yield obj
 
-    def optimize(self, apply: bool = True, measurements: int = 30) -> Dict:
-        dreport = self._sdfg.get_instrumented_data()
 
-        tuning_report = {}
-        for state, node in tqdm(list(self.cutouts())):
-            if os.path.exists(f'{node.label}.stuning'):
-                print(f'Using cached {node.label}')
-                with open(f'{node.label}.stuning', 'r') as fp:
-                    tuning_report[node.label] = json.load(fp)
-                continue
-            cutout = cutter.cutout_state(state, node, make_copy=False)
-            cutout.instrument = self.instrument
+    def evaluate(self, state: dace.SDFGState, node: dace.nodes.Node, dreport, measurements: int) -> Dict:
+        cutout = cutter.cutout_state(state, node, make_copy=False)
+        cutout.instrument = self.instrument
+                
+        arguments = {}
+        for cstate in cutout.nodes():
+            for dnode in cstate.data_nodes():
+                if cutout.arrays[dnode.data].transient:
+                    continue
 
-            arguments = {}
-            for cstate in cutout.nodes():
-                for dnode in cstate.data_nodes():
-                    if cutout.arrays[dnode.data].transient:
-                        continue
+                arguments[dnode.data] = dreport.get_first_version(dnode.data)
 
-                    arguments[dnode.data] = dreport.get_first_version(dnode.data)
+        results = {}
+        label = f'{self.rank + 1}/{self.num_ranks}: {node.label}'   
+        for spec, collapse in tqdm(list(self.space(node)), desc=label):
+            node._expansion_specification = spec
 
-            results = {}
-            best_choice = None
-            best_runtime = math.inf
-            for spec in tqdm(list(self.space(node)), desc=node.label):
-                node._expansion_specification = spec
+            runtime = self.measure(cutout, arguments, collapse, measurements)
+            results[str(spec) + f", collapse: {collapse}"] = runtime
 
-                runtime = self.measure(cutout, arguments, measurements)
-                results[str(spec)] = runtime
+        return results
 
-                if runtime < best_runtime:
-                    best_choice = spec
-                    best_runtime = runtime
-
-            if apply and best_choice is not None:
-                node._expansion_specification = spec
-
-            tuning_report[node.label] = results
-            with open(f'{node.label}.stuning', 'w') as fp:
-                json.dump(results, fp)
-        return tuning_report
-
+    def evaluate_single(self, config: Any, cutout: dace.SDFG, arguments: Dict[str, Any], state: dace.SDFGState, node: dace.nodes.Node, dreport, measurements: int) -> Tuple[Any, Any]:
+        spec, collapse = config
+        node._expansion_specification = spec
+        runtime = self.measure(cutout, arguments, collapse, measurements)
+        return (str(spec) + f", collapse: {collapse}"), runtime
+    
     def measure(self,
                 sdfg: dace.SDFG,
-                    arguments: Dict[str, dace.data.ArrayLike],
+                arguments: Dict[str, dace.data.ArrayLike],
+                collapse: int,
                 repetitions: int = 30) -> float:
         with dace.config.set_temporary('debugprint', value=False):
             sdfg = sdfg.from_json(sdfg.to_json())
+            sdfg.build_folder = '/dev/shm'
             sdfg.expand_library_nodes()
             sdfg.apply_transformations_repeated(ViewRemove)
             sdfg.simplify()
+            sdfg.apply_transformations_repeated(MapCollapse)
+            if collapse != 0:
+                for node, _ in sdfg.all_nodes_recursive():
+                    if isinstance(node, dace.nodes.MapEntry):
+                        node.collapse = len(node.params)
+
         return super().measure(sdfg, arguments, repetitions)
 
 
@@ -214,8 +219,8 @@ class SequentialDataLayoutTuner(optim.DataLayoutTuner):
 
 
 if __name__ == '__main__':
-    sdfg = dace.SDFG.from_file('aha-12792.sdfg')
-    sdfg.build_folder = '.gt_cache/dacecache/fv3core_stencils_fvtp2d_FiniteVolumeTransport___call__'
+    sdfg = dace.SDFG.from_file('aha-fvtp2d-c128.sdfg')
+    sdfg.build_folder = f'.gt_cache/dacecache/{sdfg.name}'
     if False:
         sdfg.expand_library_nodes()
         sdfg.apply_transformations_repeated(ViewRemove)
@@ -224,7 +229,8 @@ if __name__ == '__main__':
         report = tuner.optimize(group_by=TuningGroups.Inputs_Outputs_Dimension)
     else:
         tuner = StencilTuner(sdfg)
-        report = tuner.optimize()
+        dist = optim.DistributedSpaceTuner(tuner)
+        report = dist.optimize()
 
 
     print(report)
