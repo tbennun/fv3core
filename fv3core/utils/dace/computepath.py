@@ -75,8 +75,11 @@ def call_sdfg(daceprog: DaceProgram, sdfg: dace.SDFG, args, kwargs, sdfg_final=F
         # Simplify the SDFG (automatic optimization)
         sdfg.simplify(validate=False)
 
-        # Here we insert optimization passes that don't exists in Simplify yet
-        refine_permute_arrays(sdfg)
+        # Expand the stencil computation Library Nodes with the right expansion
+        sdfg.expand_library_nodes()
+
+        # Simplify again after expansion
+        sdfg.simplify(validate=False)
 
         # Call
         res = sdfg(**sdfg_kwargs)
